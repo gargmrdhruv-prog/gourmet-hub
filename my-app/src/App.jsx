@@ -184,6 +184,9 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
 
 
   // --- ROUTING LOGIC ---
+  // --- ROUTING LOGIC ---
+  const currentHash = window.location.hash || '#/'; // Default to root hash if empty
+
   if (loading) {
     return (
       <div className="h-screen bg-slate-900 flex flex-col items-center justify-center text-white gap-4">
@@ -193,42 +196,42 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
     );
   }
 
-  if (routePath === '/super-admin') {
-    const isSuperAdmin = localStorage.getItem('super_admin_auth') === 'true';
-    if (!isSuperAdmin) {
-      window.location.replace('/super-admin-login'); 
+  // Super Admin Logic
+  if (currentHash === '#/super-admin') {
+    if (localStorage.getItem('super_admin_auth') !== 'true') {
+      window.location.hash = '#/super-admin-login';
       return null;
     }
     return <SuperAdminDashboard />;
   }
 
-  if (routePath === '/super-admin-login') {
-    const isSuperAdmin = localStorage.getItem('super_admin_auth') === 'true';
-    if (isSuperAdmin) {
-      window.location.replace('/super-admin'); 
+  if (currentHash === '#/super-admin-login') {
+    if (localStorage.getItem('super_admin_auth') === 'true') {
+      window.location.hash = '#/super-admin';
       return null;
     }
     return <SuperAdminLogin />;
   }
 
-  if (routePath === '/admin-login') {
+  // Admin Logic
+  if (currentHash === '#/admin-login') {
     if (user) {
-      window.location.replace('/admin'); 
+      window.location.hash = '#/admin';
       return null;
     }
     return <AdminLogin onLoginSuccess={(u) => {
       setUser(u);
-      window.location.href = '/admin'; 
+      window.location.hash = '#/admin';
     }} />;
   }
 
-  if (routePath === '/admin/settings') {
+  if (currentHash === '#/admin/settings') {
      return <Settings />;
   }
 
-  if (routePath.startsWith('/admin') && routePath !== '/admin-login') {
+  if (currentHash.startsWith('#/admin') && currentHash !== '#/admin-login') {
     if (!user) {
-      window.location.replace('/admin-login');
+      window.location.hash = '#/admin-login';
       return null;
     }
     return <AdminDashboard />;
