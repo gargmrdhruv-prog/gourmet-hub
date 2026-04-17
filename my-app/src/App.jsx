@@ -183,9 +183,8 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
   };
 
 
-  // --- ROUTING LOGIC ---
-  // --- ROUTING LOGIC ---
-  const currentHash = window.location.hash || '#/'; // Default to root hash if empty
+ // --- FINAL ROUTING LOGIC ---
+  const currentURL = window.location.href; // Pura URL uthao
 
   if (loading) {
     return (
@@ -196,47 +195,30 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
     );
   }
 
-  // Super Admin Logic
-  if (currentHash === '#/super-admin') {
-    if (localStorage.getItem('super_admin_auth') !== 'true') {
-      window.location.hash = '#/super-admin-login';
-      return null;
-    }
-    return <SuperAdminDashboard />;
-  }
-
-  if (currentHash === '#/super-admin-login') {
-    if (localStorage.getItem('super_admin_auth') === 'true') {
-      window.location.hash = '#/super-admin';
-      return null;
-    }
+  // 1. Super Admin Section
+  if (currentURL.includes('super-admin-login')) {
     return <SuperAdminLogin />;
   }
-
-  // Admin Logic
-  if (currentHash === '#/admin-login') {
-    if (user) {
-      window.location.hash = '#/admin';
-      return null;
-    }
-    return <AdminLogin onLoginSuccess={(u) => {
-      setUser(u);
-      window.location.hash = '#/admin';
-    }} />;
+  if (currentURL.includes('super-admin')) {
+    const isSuperAuth = localStorage.getItem('super_admin_auth') === 'true';
+    return isSuperAuth ? <SuperAdminDashboard /> : <SuperAdminLogin />;
   }
 
-  if (currentHash === '#/admin/settings') {
-     return <Settings />;
+  // 2. Admin Section
+  if (currentURL.includes('admin-login')) {
+    if (user) { window.location.href = '/admin'; return null; }
+    return <AdminLogin onLoginSuccess={(u) => { setUser(u); window.location.href = '/admin'; }} />;
   }
-
-  if (currentHash.startsWith('#/admin') && currentHash !== '#/admin-login') {
-    if (!user) {
-      window.location.hash = '#/admin-login';
-      return null;
-    }
+  if (currentURL.includes('admin/settings')) {
+    return <Settings />;
+  }
+  if (currentURL.includes('/admin')) {
+    if (!user) { window.location.href = '/admin-login'; return null; }
     return <AdminDashboard />;
   }
 
+  // 3. Customer Section (Default)
+  // --- YAHAN SE AAPKA WELCOME VIEW START HOGA ---
   // --- CUSTOMER VIEWS ---
   if (view === 'welcome') {
     return (
