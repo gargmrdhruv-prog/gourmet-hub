@@ -30,8 +30,7 @@ function App() {
     taxes: [] 
   });
 
-  const routePath = window.location.pathname.toLowerCase().replace(/\/$/, "");
-
+const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\/$/, "");
   useEffect(() => {
     const init = async () => {
       const savedUser = localStorage.getItem('admin_user');
