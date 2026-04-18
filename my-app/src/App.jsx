@@ -4,7 +4,7 @@ import AdminLogin from './AdminLogin';
 import AdminDashboard from './AdminDashboard';
 import Settings from "./Settings";
 import SuperAdminDashboard from './SuperAdminDashboard'; 
-import { Loader2, CheckCircle2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, ShoppingCart } from 'lucide-react'; // 🚨 ShoppingCart imported for empty cart
+import { Loader2, CheckCircle2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, ShoppingCart, Edit3 } from 'lucide-react';
 import SuperAdminLogin from './SuperAdminLogin';
 
 function App() {
@@ -24,7 +24,13 @@ function App() {
   const [selectedDish, setSelectedDish] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [cookingRequest, setCookingRequest] = useState('');
-  const [selectedRecs, setSelectedRecs] = useState([]); // 🚨 Naya state recommendations select karne ke liye
+  const [selectedRecs, setSelectedRecs] = useState([]); 
+  const [selectedRecVariants, setSelectedRecVariants] = useState({}); // 🚨 RECS ke variants store karega
+
+  // CUSTOMIZE CART ITEM STATES
+  const [editingCartItem, setEditingCartItem] = useState(null);
+  const [editCartVariant, setEditCartVariant] = useState(null);
+  const [editCartRequest, setEditCartRequest] = useState('');
 
   const [storeSettings, setStoreSettings] = useState({
     name: 'Loading...', logo: '', tagline: '', taxes: [] 
@@ -113,7 +119,6 @@ function App() {
     }
   }, [selectedCategory, allDishes]);
 
-  // 🚨 Add To Cart function upgraded (Ab sheet instantly band nahi hogi agar closeSheet false ho)
   const addToCart = (dish, variant = null, request = "", closeSheet = true) => {
     const actualPrice = variant ? variant.price : dish.price;
     const cartItemId = variant ? `${dish.id}-${variant.name}` : `${dish.id}-regular`;
@@ -132,6 +137,7 @@ function App() {
       setSelectedVariant(null);
       setCookingRequest('');
       setSelectedRecs([]);
+      setSelectedRecVariants({});
     }
   }
 
@@ -143,6 +149,36 @@ function App() {
     });
   }
 
+  // 🚨 CUSTOMIZE CART ITEM LOGIC
+  const openEditCartItem = (item) => {
+    setEditingCartItem(item);
+    setEditCartVariant(item.selectedVariant);
+    setEditCartRequest(item.cookingRequest || '');
+  }
+
+  const handleUpdateCartItem = () => {
+    setCart(prevCart => {
+      const newCartItemId = editCartVariant ? `${editingCartItem.id}-${editCartVariant.name}` : `${editingCartItem.id}-regular`;
+      const filtered = prevCart.filter(i => i.cartItemId !== editingCartItem.cartItemId);
+      const existing = filtered.find(i => i.cartItemId === newCartItemId);
+      
+      if (existing) {
+        // Agar same variant wala pehle se hai toh qty merge kardo
+        return filtered.map(i => i.cartItemId === newCartItemId ? { ...i, qty: i.qty + editingCartItem.qty, cookingRequest: editCartRequest || i.cookingRequest } : i);
+      } else {
+        // Naya variant update kardo
+        return [...filtered, { 
+          ...editingCartItem, 
+          cartItemId: newCartItemId, 
+          selectedVariant: editCartVariant, 
+          cookingRequest: editCartRequest, 
+          price: editCartVariant ? editCartVariant.price : editingCartItem.price 
+        }];
+      }
+    });
+    setEditingCartItem(null);
+  };
+
   const getSmartRecs = (currentDish) => {
     if (!currentDish.paired_items || currentDish.paired_items.length === 0) return [];
     return allDishes.filter(d => currentDish.paired_items.includes(d.id) && d.id !== currentDish.id);
@@ -151,7 +187,8 @@ function App() {
   const openDishSheet = (dish) => {
     setSelectedDish(dish);
     setCookingRequest('');
-    setSelectedRecs([]); // Nayi dish kholne par purani recommendations clear karo
+    setSelectedRecs([]); 
+    setSelectedRecVariants({});
     if (dish.variants && dish.variants.length > 0) {
       setSelectedVariant(dish.variants[0]);
     } else {
@@ -159,12 +196,20 @@ function App() {
     }
   };
 
-  // 🚨 Naya function recommendations ko temporarily select karne ke liye
+  // 🚨 RECOMMENDATIONS KO SELECT AUR VARIANTS MANAGE KARNA
   const toggleRec = (rec) => {
     setSelectedRecs(prev => {
       const exists = prev.find(r => r.id === rec.id);
-      if (exists) return prev.filter(r => r.id !== rec.id); // Agar pehle se hai toh hatao
-      return [...prev, rec]; // Nahi hai toh add karo
+      if (exists) {
+        const newVars = {...selectedRecVariants};
+        delete newVars[rec.id];
+        setSelectedRecVariants(newVars);
+        return prev.filter(r => r.id !== rec.id);
+      }
+      if (rec.variants && rec.variants.length > 0) {
+        setSelectedRecVariants(v => ({...v, [rec.id]: rec.variants[0]}));
+      }
+      return [...prev, rec]; 
     });
   };
 
@@ -358,6 +403,7 @@ function App() {
           </div>
         )}
 
+        {/* 🚨 ZOMATO BOTTOM SHEET 🚨 */}
         {selectedDish && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSelectedRecs([]); }}></div>
@@ -410,27 +456,53 @@ function App() {
                     />
                   </div>
 
-                  {/* 🚨 UPDATED PERFECT PAIRINGS LOGIC */}
+                  {/* 🚨 UPDATED: INLINE VARIANT SELECTION FOR RECOMMENDATIONS */}
                   {getSmartRecs(selectedDish).length > 0 && (
                     <div>
                       <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
                       <div className="flex overflow-x-auto gap-3 md:gap-4 pb-4 no-scrollbar">
                         {getSmartRecs(selectedDish).map(rec => {
                           const isSelected = selectedRecs.some(r => r.id === rec.id);
+                          const recVar = selectedRecVariants[rec.id];
+
                           return (
                             <div 
                               key={rec.id} 
-                              onClick={() => toggleRec(rec)}
-                              className={`min-w-[130px] md:min-w-[140px] bg-white border-2 cursor-pointer rounded-2xl p-2 md:p-3 shadow-sm shrink-0 transition-all ${isSelected ? 'border-orange-500 bg-orange-50/20' : 'border-slate-100'}`}
+                              className={`min-w-[140px] md:min-w-[160px] bg-white border-2 rounded-2xl p-2 md:p-3 shadow-sm shrink-0 transition-all flex flex-col ${isSelected ? 'border-orange-500 bg-orange-50/20' : 'border-slate-100'}`}
                             >
-                              <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
-                              <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-1">{rec.name}</p>
-                              <div className="flex justify-between items-center mt-2">
-                                <span className="font-black text-slate-900 text-xs">₹{rec.price}</span>
-                                <div className={`p-1 rounded-md ${isSelected ? 'bg-orange-500 text-white' : 'bg-orange-50 text-orange-600'}`}>
-                                  {isSelected ? <CheckCircle2 size={16}/> : <Plus size={16}/>}
+                              <div className="relative cursor-pointer" onClick={() => toggleRec(rec)}>
+                                <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
+                                <div className={`absolute top-1 right-1 p-1 rounded-md ${isSelected ? 'bg-orange-500 text-white' : 'bg-white text-slate-300 shadow-sm'}`}>
+                                  {isSelected ? <CheckCircle2 size={14}/> : <Plus size={14}/>}
                                 </div>
                               </div>
+                              
+                              <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-1 cursor-pointer" onClick={() => toggleRec(rec)}>{rec.name}</p>
+                              
+                              {/* Show radio buttons if recommended item has variants AND is selected */}
+                              {isSelected && rec.variants && rec.variants.length > 0 ? (
+                                <div className="mt-1 mb-2 flex flex-col gap-1.5">
+                                  {rec.variants.map((v, i) => (
+                                    <label key={i} className="flex items-center justify-between text-[9px] md:text-[10px] cursor-pointer">
+                                      <span className="text-slate-600 font-bold">{v.name}</span>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-slate-900 font-black">₹{v.price}</span>
+                                        <input 
+                                          type="radio" 
+                                          name={`rec-var-${rec.id}`} 
+                                          className="accent-orange-500 w-3 h-3" 
+                                          checked={recVar?.name === v.name} 
+                                          onChange={() => setSelectedRecVariants(prev => ({...prev, [rec.id]: v}))} 
+                                        />
+                                      </div>
+                                    </label>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="flex justify-between items-center mt-auto cursor-pointer" onClick={() => toggleRec(rec)}>
+                                  <span className="font-black text-slate-900 text-xs">₹{rec.price}</span>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -440,32 +512,87 @@ function App() {
                 </div>
               </div>
 
-              {/* 🚨 DYNAMIC STICKY BUTTON */}
+              {/* DYNAMIC STICKY BUTTON */}
               <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
                 <button 
                   onClick={() => {
-                    // 1. Main Dish add karo (Bina sheet close kiye)
+                    // Main dish check
+                    if (selectedDish.variants?.length > 0 && !selectedVariant) {
+                      return alert("Please select Quantity (Half/Full) for the main dish!");
+                    }
+                    // Recommendations checks (ensure variants are selected)
+                    for (let rec of selectedRecs) {
+                      if (rec.variants?.length > 0 && !selectedRecVariants[rec.id]) {
+                         return alert(`Please select Half/Full for ${rec.name}`);
+                      }
+                    }
+
+                    // Proceed adding
                     addToCart(selectedDish, selectedVariant, cookingRequest, false);
-                    
-                    // 2. Sari selected recommendations add karo
                     selectedRecs.forEach(rec => {
-                      const recVariant = rec.variants?.length > 0 ? rec.variants[0] : null;
-                      addToCart(rec, recVariant, "", false);
+                      addToCart(rec, selectedRecVariants[rec.id] || null, "", false);
                     });
 
-                    // 3. Sab add hone ke baad sheet close karo aur state reset karo
+                    // Close sheet
                     setSelectedDish(null);
                     setSelectedVariant(null);
                     setCookingRequest('');
                     setSelectedRecs([]);
+                    setSelectedRecVariants({});
                   }}
-                  disabled={selectedDish.variants?.length > 0 && !selectedVariant}
-                  className="w-full bg-orange-500 disabled:bg-slate-300 text-white py-3.5 md:py-4 rounded-xl md:rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 transition-all"
+                  className="w-full bg-orange-500 text-white py-3.5 md:py-4 rounded-xl md:rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 transition-all"
                 >
                   Add {1 + selectedRecs.length > 1 ? `${1 + selectedRecs.length} items` : 'item'} • ₹
-                  {(selectedVariant ? selectedVariant.price : selectedDish.price) + selectedRecs.reduce((sum, r) => sum + r.price, 0)}
+                  {(selectedVariant ? selectedVariant.price : selectedDish.price) + selectedRecs.reduce((sum, r) => sum + (selectedRecVariants[r.id] ? selectedRecVariants[r.id].price : r.price), 0)}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 🚨 EDIT CART ITEM MODAL (CUSTOMIZE IN CHECKOUT) 🚨 */}
+        {editingCartItem && (
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingCartItem(null)}></div>
+            <div className="relative bg-white w-full md:w-[500px] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl p-6 md:p-8">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h2 className="text-xl font-black text-slate-900 italic">Customize {editingCartItem.name}</h2>
+                    <button onClick={() => setEditingCartItem(null)} className="text-slate-400 hover:text-slate-900 bg-slate-100 p-2 rounded-full"><X size={18} /></button>
+                </div>
+
+                {editingCartItem.variants && editingCartItem.variants.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="font-bold text-slate-800 mb-3 text-sm">Quantity</h3>
+                      <div className="space-y-2">
+                        {editingCartItem.variants.map((variant, idx) => (
+                          <label key={idx} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${editCartVariant?.name === variant.name ? 'border-orange-500 bg-orange-50/30' : 'border-slate-100 bg-white hover:border-orange-200'}`}>
+                            <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
+                              <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-2 flex items-center justify-center ${editCartVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
+                                {editCartVariant?.name === variant.name && <div className="w-2 h-2 md:w-2.5 md:h-2.5 bg-orange-500 rounded-full"></div>}
+                              </div>
+                            </div>
+                            <input type="radio" name="edit-variant" className="hidden" checked={editCartVariant?.name === variant.name} onChange={() => setEditCartVariant(variant)} />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                )}
+
+                <div className="mb-8">
+                    <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-sm flex items-center gap-2"><MessageSquare size={14}/> Cooking Request</h3>
+                    <textarea 
+                      placeholder="e.g. Don't make it too spicy" 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 md:p-4 text-sm font-medium text-slate-700 outline-none focus:border-orange-500 focus:bg-white transition-all resize-none h-20"
+                      value={editCartRequest}
+                      onChange={(e) => setEditCartRequest(e.target.value)}
+                    />
+                </div>
+
+                <button onClick={handleUpdateCartItem} className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 transition-all">
+                    Update Item
+                </button>
             </div>
           </div>
         )}
@@ -473,9 +600,8 @@ function App() {
     )
   }
 
-  // --- 🚨 NEW CHECKOUT VIEW WITH EMPTY STATE 🚨 ---
+  // --- CHECKOUT VIEW ---
   if (view === 'checkout') {
-    // Agar cart khali ho jaye toh yeh dikhao
     if (cart.length === 0) {
       return (
         <div className="w-full min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
@@ -492,12 +618,12 @@ function App() {
     }
 
     return (
-      <div className="w-full min-h-screen bg-slate-50 p-4 md:p-8 pb-32 overflow-y-auto">
+      <div className="w-full min-h-screen bg-slate-50 p-4 md:p-8 pb-32 overflow-y-auto relative">
         <div className="max-w-2xl mx-auto">
           <button onClick={() => setView('menu')} className="flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 hover:text-orange-500 transition-all"><ChevronLeft size={14}/> Back to Menu</button>
           <h2 className="text-3xl font-black text-slate-900 mb-8 italic tracking-tighter">Your Order</h2>
           
-          <div className="space-y-4 mb-8">
+          <div className="space-y-4 mb-4">
              {cart.map(item => (
                <div key={item.cartItemId} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3">
                  <div className="flex justify-between items-start">
@@ -514,18 +640,28 @@ function App() {
                  </div>
                  
                  <div className="flex justify-between items-end mt-2">
-                    <div className="flex-1 pr-4">
+                    <div className="flex-1 pr-4 flex flex-col items-start gap-2">
                       {item.cookingRequest && <p className="text-[11px] text-orange-600 bg-orange-50 p-2 rounded-lg italic inline-block font-medium">" {item.cookingRequest} "</p>}
+                      
+                      {/* 🚨 CUSTOMIZE BUTTON ADDED */}
+                      <button onClick={() => openEditCartItem(item)} className="text-[10px] font-black text-orange-500 uppercase tracking-widest hover:underline flex items-center gap-1 bg-orange-50 px-3 py-1.5 rounded-md">
+                        <Edit3 size={12} /> Customize
+                      </button>
                     </div>
                     <div className="flex items-center gap-4 bg-slate-100 rounded-xl px-2 py-1 shrink-0">
                       <button onClick={() => removeFromCart(item.cartItemId)} className="font-black text-slate-600 text-lg px-2 hover:text-orange-600">-</button>
                       <span className="text-sm font-black text-slate-800">{item.qty}</span>
-                      <button onClick={() => addToCart(item, item.selectedVariant, item.cookingRequest)} className="font-black text-slate-600 text-lg px-2 hover:text-orange-600">+</button>
+                      <button onClick={() => addToCart(item, item.selectedVariant, item.cookingRequest, false)} className="font-black text-slate-600 text-lg px-2 hover:text-orange-600">+</button>
                     </div>
                  </div>
                </div>
              ))}
           </div>
+
+          {/* 🚨 ADD MORE ITEMS BUTTON */}
+          <button onClick={() => setView('menu')} className="w-full bg-orange-50/50 text-orange-600 border-2 border-orange-200 border-dashed py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-orange-100 transition-all mb-8 shadow-sm">
+             <Plus size={16} /> Add More Items
+          </button>
 
           <div className="bg-slate-900 text-white p-6 md:p-8 rounded-[2rem] shadow-xl mb-8">
             <div className="space-y-3 mb-6 text-sm font-medium text-slate-300 border-b border-slate-700 pb-6">
@@ -556,6 +692,53 @@ function App() {
             {loading ? <Loader2 className="animate-spin" size={24} /> : 'Place Order Now'}
           </button>
         </div>
+        
+        {/* Render Edit Cart Modal globally within the checkout view too */}
+        {editingCartItem && (
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingCartItem(null)}></div>
+            <div className="relative bg-white w-full md:w-[500px] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl p-6 md:p-8">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h2 className="text-xl font-black text-slate-900 italic">Customize {editingCartItem.name}</h2>
+                    <button onClick={() => setEditingCartItem(null)} className="text-slate-400 hover:text-slate-900 bg-slate-100 p-2 rounded-full"><X size={18} /></button>
+                </div>
+
+                {editingCartItem.variants && editingCartItem.variants.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="font-bold text-slate-800 mb-3 text-sm">Quantity</h3>
+                      <div className="space-y-2">
+                        {editingCartItem.variants.map((variant, idx) => (
+                          <label key={idx} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${editCartVariant?.name === variant.name ? 'border-orange-500 bg-orange-50/30' : 'border-slate-100 bg-white hover:border-orange-200'}`}>
+                            <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
+                              <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-2 flex items-center justify-center ${editCartVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
+                                {editCartVariant?.name === variant.name && <div className="w-2 h-2 md:w-2.5 md:h-2.5 bg-orange-500 rounded-full"></div>}
+                              </div>
+                            </div>
+                            <input type="radio" name="edit-variant" className="hidden" checked={editCartVariant?.name === variant.name} onChange={() => setEditCartVariant(variant)} />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                )}
+
+                <div className="mb-8">
+                    <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-sm flex items-center gap-2"><MessageSquare size={14}/> Cooking Request</h3>
+                    <textarea 
+                      placeholder="e.g. Don't make it too spicy" 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 md:p-4 text-sm font-medium text-slate-700 outline-none focus:border-orange-500 focus:bg-white transition-all resize-none h-20"
+                      value={editCartRequest}
+                      onChange={(e) => setEditCartRequest(e.target.value)}
+                    />
+                </div>
+
+                <button onClick={handleUpdateCartItem} className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 transition-all">
+                    Update Item
+                </button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
