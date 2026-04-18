@@ -428,13 +428,23 @@ const MenuManagement = () => {
 
                   <div>
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-2">Price Value (₹)</label>
-                    <input 
-                      required 
-                      type="number" 
-                      className="w-full bg-slate-50 border-none rounded-[1.5rem] p-5 mt-2 font-black italic text-slate-800 focus:ring-4 focus:ring-orange-500/10 transition-all outline-none" 
-                      value={newDish.price} 
-                      onChange={e => setNewDish({...newDish, price: e.target.value})} 
-                    />
+                    <input
+            required
+            type="number"
+            min="0" // 👈 0 se neeche jane hi nahi dega
+            onKeyDown={(e) => {
+              if (e.key === '-' || e.key === 'e') e.preventDefault(); // 👈 Minus sign block karega
+            }}
+            className="w-full bg-slate-50 border-none rounded-[1.5rem] p-5 mt-2 font-black italic text-slate-800 focus:ring-4 focus:ring-orange-500/10 transition-all outline-none"
+            value={newDish.price}
+            onChange={(e) => {
+              const val = e.target.value;
+              // 🛡️ Extra check: Agar user manually kuch galat type kare toh
+              if (val >= 0 || val === "") {
+                setNewDish({...newDish, price: val});
+              }
+            }}
+          />
                   </div>
 
                   <div>
