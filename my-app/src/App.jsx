@@ -304,7 +304,21 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
         </nav>
 
         <div className="p-6 space-y-8">
-          {filteredDishes.map(dish => {
+          {filteredDishes.length === 0 ? (
+            /* 🎨 THE NEW EMPTY STATE UI */
+            <div className="flex flex-col items-center justify-center text-center py-16 px-4 animate-in fade-in zoom-in duration-500">
+              <div className="w-28 h-28 bg-slate-50 rounded-full flex items-center justify-center mb-6 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)] border border-slate-100">
+                <span className="text-5xl grayscale opacity-50">🍽️</span>
+              </div>
+              <h3 className="text-2xl font-serif font-black text-slate-800 mb-3 italic">Menu is Brewing</h3>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed max-w-[250px] mx-auto">
+                {searchTerm 
+                  ? "We couldn't find any dish matching your search." 
+                  : "Our chef is currently curating the menu. Please check back in a little while!"}
+              </p>
+            </div>
+          ) : (
+          filteredDishes.map(dish => {
             const inCart = cart.find(i => i.id === dish.id)
             const recs = getSmartRecs(dish)
             
@@ -376,7 +390,8 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
                 )}
               </div>
             )
-          })}
+          })
+        )}  
         </div>
 
         {cart.length > 0 && (
