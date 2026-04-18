@@ -4,7 +4,7 @@ import AdminLogin from './AdminLogin';
 import AdminDashboard from './AdminDashboard';
 import Settings from "./Settings";
 import SuperAdminDashboard from './SuperAdminDashboard'; 
-import { Loader2, CheckCircle2, ChevronLeft, Search, X } from 'lucide-react'; // 🚨 X icon add kiya hai cancel button ke liye
+import { Loader2, CheckCircle2, ChevronLeft, Search, X } from 'lucide-react';
 import SuperAdminLogin from './SuperAdminLogin';
 
 function App() {
@@ -87,7 +87,7 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
           name: settingsData.restaurant_name || 'Gourmet Menu',
           logo: settingsData.logo_url || '',
           tagline: settingsData.tagline || '',
-          taxes: settingsData.taxes || [] // 🚨 TAX DATA FETCHED
+          taxes: settingsData.taxes || [] 
         });
       } else {
         setStoreSettings({ name: 'Welcome to Our Menu', logo: '', tagline: '', taxes: [] });
@@ -122,9 +122,16 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
   }, [searchTerm, selectedCategory, allDishes])
 
   const addToCart = (dish) => {
-    const existing = cart.find(i => i.id === dish.id)
-    if (existing) setCart(cart.map(i => i.id === dish.id ? { ...i, qty: i.qty + 1 } : i))
-    else setCart([...cart, { ...dish, qty: 1 }])
+    // 🛡️ Extra check added for safety
+    const safePrice = Math.max(0, dish.price);
+    const safeDish = { ...dish, price: safePrice };
+
+    const existing = cart.find(i => i.id === safeDish.id)
+    if (existing) {
+      setCart(cart.map(i => i.id === safeDish.id ? { ...i, qty: i.qty + 1 } : i));
+    } else {
+      setCart([...cart, { ...safeDish, qty: 1 }]);
+    }
   }
 
   const removeFromCart = (id) => {
@@ -138,7 +145,6 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
     return allDishes.filter(d => currentDish.paired_items.includes(d.id) && d.id !== currentDish.id);
   }
 
-  // 🚨 NEW MATH LOGIC FOR TAXES 🚨
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
   const activeTaxes = storeSettings.taxes?.filter(tax => tax.active) || [];
   const taxBreakdown = activeTaxes.map(tax => ({
@@ -147,7 +153,7 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
     amount: subtotal * (tax.rate / 100)
   }));
   const totalTaxAmount = taxBreakdown.reduce((sum, tax) => sum + tax.amount, 0);
-  const grandTotal = Math.round(subtotal + totalTaxAmount); // Rounded to avoid decimals
+  const grandTotal = Math.round(subtotal + totalTaxAmount); 
 
   const handleConfirmOrder = async () => {
     if (loading) return;
@@ -163,7 +169,7 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
         .insert([{ 
           restaurant_id: activeRestId, 
           table_number: finalTableStatus, 
-          total_bill: grandTotal, // 🚨 Saving Grand Total instead of Subtotal
+          total_bill: grandTotal, 
           status: 'pending',
           items: cart 
         }])
@@ -182,9 +188,7 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
     }
   };
 
-
- // --- FINAL ROUTING LOGIC ---
-  const currentURL = window.location.href; // Pura URL uthao
+  const currentURL = window.location.href; 
 
   if (loading) {
     return (
@@ -195,40 +199,36 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
     );
   }
 
-  // 1. Super Admin Section
-  if (currentURL.includes('super-admin-login')) {
-    return <SuperAdminLogin />;
-  }
+  // --- PORTALS ---
+  if (currentURL.includes('super-admin-login')) { return <SuperAdminLogin />; }
   if (currentURL.includes('super-admin')) {
     const isSuperAuth = localStorage.getItem('super_admin_auth') === 'true';
     return isSuperAuth ? <SuperAdminDashboard /> : <SuperAdminLogin />;
   }
-
-  // 2. Admin Section
   if (currentURL.includes('admin-login')) {
     if (user) { window.location.href = '/admin'; return null; }
     return <AdminLogin onLoginSuccess={(u) => { setUser(u); window.location.href = '/admin'; }} />;
   }
-  if (currentURL.includes('admin/settings')) {
-    return <Settings />;
-  }
+  if (currentURL.includes('admin/settings')) { return <Settings />; }
   if (currentURL.includes('/admin')) {
     if (!user) { window.location.href = '/admin-login'; return null; }
     return <AdminDashboard />;
   }
 
-  // 3. Customer Section (Default)
-  // --- YAHAN SE AAPKA WELCOME VIEW START HOGA ---
-  // --- CUSTOMER VIEWS ---
+
+  // --- VIEWS ---
+
   if (view === 'welcome') {
     return (
-      <div className="max-w-md mx-auto h-screen bg-slate-900 flex flex-col justify-end pb-20 px-8 relative overflow-hidden">
-        <img src="https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=800" className="absolute inset-0 w-full h-full object-cover opacity-50" alt="bg" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent"></div>
-        <div className="relative z-10 text-center">
-          <h2 className="text-orange-400 font-serif italic mb-2">Welcome to</h2>
-          <h1 className="text-5xl font-serif font-black text-white mb-8 tracking-tighter italic">{storeSettings.name}</h1>
-          <button onClick={() => setView('menu')} className="w-full bg-orange-500 text-white py-5 rounded-2xl font-black text-lg shadow-2xl">EXPLORE MENU</button>
+      <div className="w-full min-h-screen bg-slate-900 flex flex-col justify-end md:justify-center pb-12 md:pb-20 px-6 md:px-12 relative overflow-hidden">
+        <img src="https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200" className="absolute inset-0 w-full h-full object-cover opacity-40" alt="bg" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent"></div>
+        <div className="relative z-10 text-center max-w-2xl mx-auto w-full">
+          <h2 className="text-orange-400 font-serif italic mb-2 text-xl md:text-2xl">Welcome to</h2>
+          <h1 className="text-5xl md:text-7xl font-serif font-black text-white mb-8 tracking-tighter italic">{storeSettings.name}</h1>
+          <button onClick={() => setView('menu')} className="w-full md:w-auto md:px-16 bg-orange-500 text-white py-5 rounded-2xl md:rounded-full font-black text-lg shadow-2xl hover:bg-orange-600 transition-all hover:scale-105">
+            EXPLORE MENU
+          </button>
         </div>
       </div>
     )
@@ -236,171 +236,172 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
 
   if (view === 'menu') {
     return (
-      <div className="max-w-md mx-auto min-h-screen bg-white pb-32">
+      <div className="w-full min-h-screen bg-slate-50 pb-32">
         
-        {/* 🚨 SMART SEARCH HEADER 🚨 */}
-        <header className="bg-white shadow-sm sticky top-0 z-50 p-6 border-b border-slate-100 flex flex-col">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm flex-shrink-0">
-                {storeSettings.logo ? (
-                  <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="font-black text-xl text-orange-500 italic">{storeSettings.name.charAt(0)}</span>
-                )}
+        {/* RESPONSIVE HEADER */}
+        <header className="bg-white shadow-sm sticky top-0 z-50 border-b border-slate-100">
+          <div className="max-w-7xl mx-auto p-4 md:p-6 flex flex-col">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 md:gap-5">
+                <div className="h-12 w-12 md:h-16 md:w-16 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm flex-shrink-0">
+                  {storeSettings.logo ? (
+                    <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="font-black text-xl md:text-2xl text-orange-500 italic">{storeSettings.name.charAt(0)}</span>
+                  )}
+                </div>
+                <div className="overflow-hidden">
+                  <h1 className="text-xl md:text-2xl font-black italic text-slate-800 leading-tight truncate">
+                    {storeSettings.name}
+                  </h1>
+                  {storeSettings.tagline && (
+                    <p className="text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5 truncate">
+                      {storeSettings.tagline}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="overflow-hidden">
-                <h1 className="text-xl font-black italic text-slate-800 leading-tight truncate">
-                  {storeSettings.name}
-                </h1>
-                {storeSettings.tagline && (
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5 truncate">
-                    {storeSettings.tagline}
-                  </p>
-                )}
-              </div>
+
+              {!isSearchOpen && (
+                <button onClick={() => setIsSearchOpen(true)} className="p-3 bg-slate-50 text-slate-600 rounded-full hover:bg-slate-100 transition-colors shadow-sm flex-shrink-0">
+                  <Search size={20} className="md:w-6 md:h-6" />
+                </button>
+              )}
             </div>
 
-            {/* Top Right Search Icon */}
-            {!isSearchOpen && (
-              <button 
-                onClick={() => setIsSearchOpen(true)} 
-                className="p-3 bg-slate-50 text-slate-600 rounded-full hover:bg-slate-100 transition-colors shadow-sm flex-shrink-0"
-              >
-                <Search size={20} />
-              </button>
+            {isSearchOpen && (
+              <div className="flex items-center gap-2 w-full bg-slate-50 border border-slate-200 p-2 md:p-3 rounded-2xl animate-in fade-in zoom-in-95 duration-200 mt-4">
+                <Search size={20} className="text-slate-400 ml-2" />
+                <input 
+                  type="text"
+                  placeholder="Search delicacies..."
+                  className="bg-transparent border-none outline-none w-full text-sm md:text-base font-semibold text-slate-700"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  autoFocus
+                />
+                <button onClick={() => { setIsSearchOpen(false); setSearchTerm(''); }} className="p-2 text-slate-400 hover:text-red-500 font-bold">
+                  <X size={18} />
+                </button>
+              </div>
             )}
           </div>
-
-          {/* Expandable Search Bar */}
-          {isSearchOpen && (
-            <div className="flex items-center gap-2 w-full bg-slate-50 border border-slate-200 p-2 rounded-2xl animate-in fade-in zoom-in-95 duration-200 mt-4">
-              <Search size={20} className="text-slate-400 ml-2" />
-              <input 
-                type="text"
-                placeholder="Search delicacies..."
-                className="bg-transparent border-none outline-none w-full text-sm font-semibold text-slate-700"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                autoFocus
-              />
-              <button 
-                onClick={() => { setIsSearchOpen(false); setSearchTerm(''); }} 
-                className="p-2 text-slate-400 hover:text-red-500 font-bold"
-              >
-                <X size={18} />
-              </button>
-            </div>
-          )}
         </header>
 
-        <nav className="flex gap-4 overflow-x-auto p-6 pt-4 sticky top-[95px] bg-white/90 backdrop-blur-md z-30 no-scrollbar">
-          {categories.map(cat => (
-            <button key={cat.id} onClick={() => {setSelectedCategory(cat.id); setSearchTerm('')}}
-              className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 ${selectedCategory === cat.id ? 'bg-slate-900 text-white shadow-md' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}>
-              {cat.name}
-            </button>
-          ))}
-        </nav>
+        {/* RESPONSIVE NAV */}
+        <div className="sticky top-[81px] md:top-[105px] bg-white/90 backdrop-blur-md z-40 border-b border-slate-100/50">
+          <nav className="flex gap-3 md:gap-4 overflow-x-auto p-4 md:p-6 max-w-7xl mx-auto no-scrollbar">
+            {categories.map(cat => (
+              <button key={cat.id} onClick={() => {setSelectedCategory(cat.id); setSearchTerm('')}}
+                className={`px-5 py-2.5 md:px-8 md:py-3 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 ${selectedCategory === cat.id ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-100'}`}>
+                {cat.name}
+              </button>
+            ))}
+          </nav>
+        </div>
 
-        <div className="p-6 space-y-8">
+        {/* RESPONSIVE DISH GRID */}
+        <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
           {filteredDishes.length === 0 ? (
-            /* 🎨 THE NEW EMPTY STATE UI */
-            <div className="flex flex-col items-center justify-center text-center py-16 px-4 animate-in fade-in zoom-in duration-500">
-              <div className="w-28 h-28 bg-slate-50 rounded-full flex items-center justify-center mb-6 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)] border border-slate-100">
-                <span className="text-5xl grayscale opacity-50">🍽️</span>
+            <div className="flex flex-col items-center justify-center text-center py-20 px-4 animate-in fade-in zoom-in duration-500">
+              <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-full flex items-center justify-center mb-6 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)] border border-slate-100">
+                <span className="text-5xl md:text-6xl grayscale opacity-50">🍽️</span>
               </div>
-              <h3 className="text-2xl font-serif font-black text-slate-800 mb-3 italic">Menu is Brewing</h3>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed max-w-[250px] mx-auto">
+              <h3 className="text-2xl md:text-3xl font-serif font-black text-slate-800 mb-3 italic">Menu is Brewing</h3>
+              <p className="text-[11px] md:text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed max-w-[300px] mx-auto">
                 {searchTerm 
                   ? "We couldn't find any dish matching your search." 
                   : "Our chef is currently curating the menu. Please check back in a little while!"}
               </p>
             </div>
           ) : (
-          filteredDishes.map(dish => {
-            const inCart = cart.find(i => i.id === dish.id)
-            const recs = getSmartRecs(dish)
-            
-            return (
-              <div key={dish.id} className="group">
-                <div className={`flex gap-4 items-start transition-opacity ${dish.is_available === false ? 'opacity-50' : 'opacity-100'}`}>
-                  <div className="w-24 h-24 rounded-2xl bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-50 shadow-sm relative">
-                    <img src={dish.image_url || `https://source.unsplash.com/200x200/?food,${dish.name}`} className="w-full h-full object-cover" alt={dish.name} />
-                    {dish.is_available === false && (
-                      <div className="absolute inset-0 bg-slate-900/50 flex items-center justify-center">
-                        <span className="text-[9px] font-black text-white uppercase tracking-widest">Out</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              {filteredDishes.map(dish => {
+                const inCart = cart.find(i => i.id === dish.id)
+                const recs = getSmartRecs(dish)
+                
+                return (
+                  <div key={dish.id} className="group bg-white p-4 md:p-6 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                    <div className={`flex gap-4 items-start ${dish.is_available === false ? 'opacity-50' : 'opacity-100'}`}>
+                      <div className="w-24 h-24 md:w-28 md:h-28 rounded-2xl bg-slate-100 overflow-hidden flex-shrink-0 border border-slate-50 shadow-sm relative">
+                        <img src={dish.image_url || `https://source.unsplash.com/200x200/?food,${dish.name}`} className="w-full h-full object-cover" alt={dish.name} />
+                        {dish.is_available === false && (
+                          <div className="absolute inset-0 bg-slate-900/50 flex items-center justify-center">
+                            <span className="text-[9px] font-black text-white uppercase tracking-widest">Out</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 py-1 flex flex-col h-full">
+                        <div className="flex justify-between items-start mb-1">
+                          <h3 className="font-bold text-slate-800 text-sm md:text-base leading-tight pr-2">{dish.name}</h3>
+                          <span className="font-black text-slate-900 text-sm md:text-base">₹{dish.price}</span>
+                        </div>
+                        <p className="text-[10px] md:text-[11px] text-slate-400 font-medium line-clamp-2 mb-3 md:mb-4 leading-relaxed">{dish.description}</p>
+                        
+                        <div className="flex items-center justify-between mt-auto">
+                          <span className={`text-[9px] font-black tracking-widest uppercase ${dish.is_available === false ? 'text-slate-400' : 'text-green-500'}`}>
+                            {dish.is_available === false ? "Sold Out" : "Available"}
+                          </span>
+
+                          {dish.is_available === false ? (
+                            <button disabled className="bg-slate-50 text-slate-300 px-4 py-1.5 rounded-lg font-black text-[9px] uppercase border border-slate-100 cursor-not-allowed">
+                              Empty
+                            </button>
+                          ) : (
+                            inCart ? (
+                              <div className="flex items-center gap-3 bg-slate-900 rounded-lg px-2 py-1 text-white shadow-md">
+                                <button onClick={() => removeFromCart(dish.id)} className="font-bold text-sm px-2 md:px-3 hover:text-orange-400">-</button>
+                                <span className="text-xs font-black">{inCart.qty}</span>
+                                <button onClick={() => addToCart(dish)} className="font-bold text-sm px-2 md:px-3 hover:text-orange-400">+</button>
+                              </div>
+                            ) : (
+                              <button onClick={() => addToCart(dish)} className="bg-white border-2 border-slate-900 px-6 py-1.5 md:py-2 rounded-lg font-black text-[10px] uppercase hover:bg-slate-900 hover:text-white transition-all">
+                                Add
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SMART RECOMMENDATIONS */}
+                    {inCart && recs.length > 0 && (
+                      <div className="mt-4 p-4 bg-orange-50/50 rounded-2xl border border-dashed border-orange-200">
+                        <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-3 italic">Perfect Add-ons</p>
+                        <div className="flex flex-wrap gap-2">
+                          {recs.map(r => (
+                            <button 
+                              key={r.id} 
+                              onClick={() => addToCart(r)} 
+                              disabled={r.is_available === false}
+                              className={`text-[10px] px-4 py-2 rounded-xl border font-black shadow-sm active:scale-95 transition-all ${
+                                r.is_available === false 
+                                ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed' 
+                                : 'bg-white text-slate-700 border-slate-100 hover:border-orange-500 hover:text-orange-500'
+                              }`}
+                            >
+                              + {r.name} {r.is_available === false && "(Out)"}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
-                  
-                  <div className="flex-1 py-1">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="font-bold text-slate-800 text-sm leading-tight pr-2">{dish.name}</h3>
-                      <span className="font-black text-slate-900 text-sm">₹{dish.price}</span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 font-medium line-clamp-2 mb-3 leading-relaxed">{dish.description}</p>
-                    
-                    <div className="flex items-center justify-between mt-auto">
-                      <span className={`text-[9px] font-black tracking-widest uppercase ${dish.is_available === false ? 'text-slate-400' : 'text-green-500'}`}>
-                        {dish.is_available === false ? "Sold Out" : "Available"}
-                      </span>
-
-                      {dish.is_available === false ? (
-                        <button disabled className="bg-slate-50 text-slate-300 px-4 py-1.5 rounded-lg font-black text-[9px] uppercase border border-slate-100 cursor-not-allowed">
-                          Empty
-                        </button>
-                      ) : (
-                        inCart ? (
-                          <div className="flex items-center gap-3 bg-slate-900 rounded-lg px-2 py-1 text-white shadow-md">
-                            <button onClick={() => removeFromCart(dish.id)} className="font-bold text-sm px-2 hover:text-orange-400">-</button>
-                            <span className="text-xs font-black">{inCart.qty}</span>
-                            <button onClick={() => addToCart(dish)} className="font-bold text-sm px-2 hover:text-orange-400">+</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => addToCart(dish)} className="bg-white border-2 border-slate-900 px-6 py-1 rounded-lg font-black text-[10px] uppercase hover:bg-slate-900 hover:text-white transition-all">
-                            Add
-                          </button>
-                        )
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {inCart && recs.length > 0 && (
-                  <div className="mt-4 p-4 bg-orange-50/50 rounded-2xl border border-dashed border-orange-200">
-                    <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-3 italic">Perfect Add-ons</p>
-                    <div className="flex flex-wrap gap-2">
-                      {recs.map(r => (
-                        <button 
-                          key={r.id} 
-                          onClick={() => addToCart(r)} 
-                          disabled={r.is_available === false}
-                          className={`text-[10px] px-4 py-2 rounded-xl border font-black shadow-sm active:scale-95 transition-all ${
-                            r.is_available === false 
-                            ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed' 
-                            : 'bg-white text-slate-700 border-slate-100 hover:border-orange-500 hover:text-orange-500'
-                          }`}
-                        >
-                          + {r.name} {r.is_available === false && "(Sold Out)"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })
-        )}  
+                )
+              })}
+            </div>
+          )}  
         </div>
 
+        {/* RESPONSIVE FLOATING CART BAR */}
         {cart.length > 0 && (
-          <div className="fixed bottom-6 left-4 right-4 bg-slate-900 rounded-2xl p-4 flex justify-between items-center shadow-2xl z-50">
+          <div className="fixed bottom-4 md:bottom-8 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-md bg-slate-900/95 backdrop-blur-xl rounded-2xl md:rounded-[2rem] p-4 md:p-5 flex justify-between items-center shadow-[0_20px_50px_rgba(0,0,0,0.3)] z-50 animate-in slide-in-from-bottom-10">
              <div className="pl-2 text-white">
                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Total Payable</p>
-                <p className="text-lg font-black tracking-tight">₹{grandTotal}</p> {/* 🚨 Grand Total Shown */}
+                <p className="text-xl font-black tracking-tight">₹{grandTotal}</p> 
              </div>
-             <button onClick={() => setView('checkout')} className="bg-orange-500 text-white px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all">Proceed</button>
+             <button onClick={() => setView('checkout')} className="bg-orange-500 text-white px-8 md:px-10 py-3 md:py-4 rounded-xl md:rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-orange-600 transition-all hover:scale-105 shadow-xl shadow-orange-500/20">Proceed</button>
           </div>
         )}
       </div>
@@ -409,90 +410,86 @@ const routePath = window.location.hash.replace('#', '').toLowerCase().replace(/\
 
   if (view === 'checkout') {
     return (
-      <div className="max-w-md mx-auto min-h-screen bg-slate-50 p-6 pb-32 overflow-y-auto">
-        <button onClick={() => setView('menu')} className="flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8 hover:text-orange-500 transition-all"><ChevronLeft size={14}/> Back to Menu</button>
-        <h2 className="text-2xl font-serif font-black text-slate-900 mb-8 italic">Complete Order</h2>
-        
-        {/* CART ITEMS */}
-        <div className="space-y-3 mb-8">
-           {cart.map(item => (
-             <div key={item.id} className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-               <span className="font-bold text-slate-800 text-sm">{item.qty}x {item.name}</span>
-               <span className="font-black text-slate-900">₹{item.price * item.qty}</span>
-             </div>
-           ))}
-        </div>
+      <div className="w-full min-h-screen bg-slate-50 p-4 md:p-8 pb-32 overflow-y-auto">
+        <div className="max-w-3xl mx-auto">
+          <button onClick={() => setView('menu')} className="flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 md:mb-8 hover:text-orange-500 transition-all"><ChevronLeft size={14}/> Back to Menu</button>
+          <h2 className="text-2xl md:text-3xl font-serif font-black text-slate-900 mb-6 md:mb-8 italic">Complete Order</h2>
+          
+          <div className="space-y-3 mb-6 md:mb-8">
+             {cart.map(item => (
+               <div key={item.id} className="flex justify-between items-center bg-white p-4 md:p-5 rounded-xl md:rounded-2xl border border-slate-100 shadow-sm">
+                 <span className="font-bold text-slate-800 text-sm md:text-base">{item.qty}x {item.name}</span>
+                 <span className="font-black text-slate-900 md:text-lg">₹{item.price * item.qty}</span>
+               </div>
+             ))}
+          </div>
 
-        {/* 🚨 NEW DETAILED BILL SUMMARY 🚨 */}
-        <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl mb-8">
-          <div className="space-y-3 mb-4 text-sm font-medium text-slate-300 border-b border-slate-700 pb-4">
-            <div className="flex justify-between items-center">
-              <span>Item Total (Subtotal)</span>
-              <span>₹{subtotal.toFixed(2)}</span>
-            </div>
-            
-            {/* Dynamic Tax Display */}
-            {taxBreakdown.map((tax, idx) => (
-              <div key={idx} className="flex justify-between items-center text-xs text-slate-400">
-                <span>{tax.name} ({tax.rate}%)</span>
-                <span>+ ₹{tax.amount.toFixed(2)}</span>
+          <div className="bg-slate-900 text-white p-6 md:p-8 rounded-2xl md:rounded-[2rem] shadow-xl mb-6 md:mb-8">
+            <div className="space-y-3 mb-4 md:mb-6 text-sm font-medium text-slate-300 border-b border-slate-700 pb-4 md:pb-6">
+              <div className="flex justify-between items-center">
+                <span>Item Total (Subtotal)</span>
+                <span>₹{subtotal.toFixed(2)}</span>
               </div>
-            ))}
+              {taxBreakdown.map((tax, idx) => (
+                <div key={idx} className="flex justify-between items-center text-xs md:text-sm text-slate-400">
+                  <span>{tax.name} ({tax.rate}%)</span>
+                  <span>+ ₹{tax.amount.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="font-black tracking-widest uppercase text-sm md:text-base">Grand Total</span>
+              <span className="text-3xl md:text-4xl font-black italic text-orange-400">₹{grandTotal}</span>
+            </div>
           </div>
 
-          <div className="flex justify-between items-center">
-            <span className="font-black tracking-widest uppercase text-sm">Grand Total</span>
-            <span className="text-3xl font-black italic text-orange-400">₹{grandTotal}</span>
+          <div className="bg-white p-6 md:p-8 rounded-2xl md:rounded-[2rem] shadow-sm mb-6 md:mb-8 border border-slate-100">
+            <label className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest block text-center mb-4 md:mb-6">
+              Table Number (Optional)
+            </label>
+            <input 
+              type="number" 
+              min="1"
+              placeholder="Eg: 5" 
+              className="w-full text-center text-4xl md:text-5xl font-black bg-slate-50 p-4 md:p-6 rounded-xl md:rounded-2xl text-slate-900 border-none outline-none mb-3 focus:ring-2 focus:ring-orange-500 transition-all"
+              value={tableNumber} 
+              onChange={e => {
+                const val = e.target.value;
+                if (val === "" || parseInt(val) >= 0) setTableNumber(val);
+              }}
+            />
+            <p className="text-[9px] md:text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">
+              Leave blank for Takeaway / Parcel
+            </p>
           </div>
-        </div>
 
-        {/* TABLE INPUT */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm mb-8 border border-slate-100">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block text-center mb-4">
-            Table Number (Optional)
-          </label>
-          <input 
-            type="number" 
-            min="1"
-            placeholder="Eg: 5" 
-            className="w-full text-center text-4xl font-black bg-slate-50 p-4 rounded-xl text-slate-900 border-none outline-none mb-3 focus:ring-2 focus:ring-orange-500 transition-all"
-            value={tableNumber} 
-            onChange={e => {
-              const val = e.target.value;
-              if (val === "" || parseInt(val) >= 0) setTableNumber(val);
-            }}
-          />
-          <p className="text-[9px] text-slate-400 text-center font-bold uppercase tracking-widest">
-            Leave blank for Takeaway / Parcel
-          </p>
+          <button 
+            onClick={handleConfirmOrder} 
+            disabled={loading}
+            className="w-full bg-orange-500 text-white py-5 md:py-6 rounded-xl md:rounded-2xl font-black text-sm md:text-base shadow-xl shadow-orange-500/20 uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-orange-600 active:scale-95 transition-all"
+          >
+            {loading ? <Loader2 className="animate-spin" size={24} /> : 'Confirm Order'}
+          </button>
         </div>
-
-        <button 
-          onClick={handleConfirmOrder} 
-          disabled={loading}
-          className="w-full bg-orange-500 text-white py-4 rounded-xl font-black text-sm shadow-xl shadow-orange-500/20 uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-orange-600 active:scale-95 transition-all"
-        >
-          {loading ? <Loader2 className="animate-spin" size={20} /> : 'Confirm Order'}
-        </button>
       </div>
     )
   }
 
   if (view === 'receipt') {
     return (
-      <div className="max-w-md mx-auto min-h-screen bg-slate-900 p-8 flex items-center justify-center">
-        <div className="bg-white w-full rounded-3xl p-8 text-center shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-2 bg-orange-500"></div>
-          <div className="my-8 inline-flex bg-green-50 p-5 rounded-full text-green-500 border border-green-100 shadow-inner"><CheckCircle2 size={40} /></div>
-          <h2 className="text-2xl font-serif font-black text-slate-900 mb-2 italic">Order Sent!</h2>
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-10 leading-relaxed">
+      <div className="w-full min-h-screen bg-slate-900 p-4 md:p-8 flex items-center justify-center">
+        <div className="bg-white w-full max-w-md rounded-[3rem] p-8 md:p-12 text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95">
+          <div className="absolute top-0 left-0 right-0 h-3 bg-orange-500"></div>
+          <div className="my-8 md:my-10 inline-flex bg-green-50 p-5 md:p-6 rounded-full text-green-500 border border-green-100 shadow-inner"><CheckCircle2 size={48} /></div>
+          <h2 className="text-2xl md:text-3xl font-serif font-black text-slate-900 mb-2 italic">Order Sent!</h2>
+          <p className="text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-widest mb-10 leading-relaxed">
             {tableNumber ? `Table ${tableNumber}` : 'Takeaway'} order <br/>has been registered
           </p>
-          <div className="mb-10 p-5 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Receipt ID</p>
-             <p className="text-xl font-black text-slate-800 tracking-tight">#{orderId}</p>
+          <div className="mb-10 md:mb-12 p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-dashed border-slate-200">
+             <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 md:mb-2">Receipt ID</p>
+             <p className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">#{orderId}</p>
           </div>
-          <button onClick={() => { setCart([]); setView('welcome'); setTableNumber('1') }} className="w-full bg-slate-900 text-white py-4 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-800 transition-all">Start New Order</button>
+          <button onClick={() => { setCart([]); setView('welcome'); setTableNumber('1') }} className="w-full bg-slate-900 text-white py-4 md:py-5 rounded-xl md:rounded-2xl font-black text-[11px] md:text-xs uppercase tracking-widest hover:bg-slate-800 transition-all hover:scale-105 shadow-xl shadow-slate-900/20">Start New Order</button>
         </div>
       </div>
     )
