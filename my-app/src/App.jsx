@@ -4,7 +4,7 @@ import AdminLogin from './AdminLogin';
 import AdminDashboard from './AdminDashboard';
 import Settings from "./Settings";
 import SuperAdminDashboard from './SuperAdminDashboard'; 
-import { Loader2, CheckCircle2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus } from 'lucide-react';
+import { Loader2, CheckCircle2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, ShoppingCart } from 'lucide-react'; // 🚨 ShoppingCart imported for empty cart
 import SuperAdminLogin from './SuperAdminLogin';
 
 function App() {
@@ -20,9 +20,11 @@ function App() {
   const [tableNumber, setTableNumber] = useState('1'); 
   const [orderId, setOrderId] = useState('');
   
+  // ZOMATO BOTTOM SHEET STATES
   const [selectedDish, setSelectedDish] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [cookingRequest, setCookingRequest] = useState('');
+  const [selectedRecs, setSelectedRecs] = useState([]); // 🚨 Naya state recommendations select karne ke liye
 
   const [storeSettings, setStoreSettings] = useState({
     name: 'Loading...', logo: '', tagline: '', taxes: [] 
@@ -111,8 +113,8 @@ function App() {
     }
   }, [selectedCategory, allDishes]);
 
-  // 🚨 FIX 1: Cart mein State Batching fix ki taaki ek sath 2 item add ho sakein
-  const addToCart = (dish, variant = null, request = "") => {
+  // 🚨 Add To Cart function upgraded (Ab sheet instantly band nahi hogi agar closeSheet false ho)
+  const addToCart = (dish, variant = null, request = "", closeSheet = true) => {
     const actualPrice = variant ? variant.price : dish.price;
     const cartItemId = variant ? `${dish.id}-${variant.name}` : `${dish.id}-regular`;
 
@@ -125,9 +127,12 @@ function App() {
       }
     });
     
-    setSelectedDish(null);
-    setSelectedVariant(null);
-    setCookingRequest('');
+    if (closeSheet) {
+      setSelectedDish(null);
+      setSelectedVariant(null);
+      setCookingRequest('');
+      setSelectedRecs([]);
+    }
   }
 
   const removeFromCart = (cartItemId) => {
@@ -146,6 +151,7 @@ function App() {
   const openDishSheet = (dish) => {
     setSelectedDish(dish);
     setCookingRequest('');
+    setSelectedRecs([]); // Nayi dish kholne par purani recommendations clear karo
     if (dish.variants && dish.variants.length > 0) {
       setSelectedVariant(dish.variants[0]);
     } else {
@@ -153,20 +159,13 @@ function App() {
     }
   };
 
-  // 🚨 FIX 2: Yeh function ek click par dono items ko cart mein bhejege
-  const handleAddPairing = (recDish) => {
-    // Agar main dish mein Half/Full hai par select nahi kiya toh pehle wo roko
-    if (selectedDish.variants?.length > 0 && !selectedVariant) {
-      alert("Please select Quantity (Half/Full) for the main dish first!");
-      return;
-    }
-    
-    // Step 1: Main dish ko uski settings (Half/Full, Special Request) ke sath cart mein daalo
-    addToCart(selectedDish, selectedVariant, cookingRequest);
-    
-    // Step 2: Uske turant baad Recommended dish ko bhi daal do
-    const recVariant = recDish.variants?.length > 0 ? recDish.variants[0] : null; 
-    addToCart(recDish, recVariant, ""); 
+  // 🚨 Naya function recommendations ko temporarily select karne ke liye
+  const toggleRec = (rec) => {
+    setSelectedRecs(prev => {
+      const exists = prev.find(r => r.id === rec.id);
+      if (exists) return prev.filter(r => r.id !== rec.id); // Agar pehle se hai toh hatao
+      return [...prev, rec]; // Nahi hai toh add karo
+    });
   };
 
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
@@ -361,11 +360,11 @@ function App() {
 
         {selectedDish && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedDish(null)}></div>
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSelectedRecs([]); }}></div>
             
             <div className="relative bg-white w-full md:w-[500px] h-[85vh] md:h-auto md:max-h-[90vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
               
-              <button onClick={() => setSelectedDish(null)} className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full backdrop-blur-md">
+              <button onClick={() => { setSelectedDish(null); setSelectedRecs([]); }} className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full backdrop-blur-md">
                 <X size={20} />
               </button>
 
@@ -411,34 +410,60 @@ function App() {
                     />
                   </div>
 
+                  {/* 🚨 UPDATED PERFECT PAIRINGS LOGIC */}
                   {getSmartRecs(selectedDish).length > 0 && (
                     <div>
                       <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
                       <div className="flex overflow-x-auto gap-3 md:gap-4 pb-4 no-scrollbar">
-                        {getSmartRecs(selectedDish).map(rec => (
-                          <div key={rec.id} className="min-w-[130px] md:min-w-[140px] bg-white border border-slate-100 rounded-2xl p-2 md:p-3 shadow-sm shrink-0">
-                            <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
-                            <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-1">{rec.name}</p>
-                            <div className="flex justify-between items-center">
-                              <span className="font-black text-slate-900 text-xs">₹{rec.price}</span>
-                              {/* 🚨 FIX 3: Yahan button par naya function add kiya hai */}
-                              <button onClick={() => handleAddPairing(rec)} className="bg-orange-50 text-orange-600 p-1.5 rounded-lg"><Plus size={14}/></button>
+                        {getSmartRecs(selectedDish).map(rec => {
+                          const isSelected = selectedRecs.some(r => r.id === rec.id);
+                          return (
+                            <div 
+                              key={rec.id} 
+                              onClick={() => toggleRec(rec)}
+                              className={`min-w-[130px] md:min-w-[140px] bg-white border-2 cursor-pointer rounded-2xl p-2 md:p-3 shadow-sm shrink-0 transition-all ${isSelected ? 'border-orange-500 bg-orange-50/20' : 'border-slate-100'}`}
+                            >
+                              <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
+                              <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-1">{rec.name}</p>
+                              <div className="flex justify-between items-center mt-2">
+                                <span className="font-black text-slate-900 text-xs">₹{rec.price}</span>
+                                <div className={`p-1 rounded-md ${isSelected ? 'bg-orange-500 text-white' : 'bg-orange-50 text-orange-600'}`}>
+                                  {isSelected ? <CheckCircle2 size={16}/> : <Plus size={16}/>}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
+              {/* 🚨 DYNAMIC STICKY BUTTON */}
               <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
                 <button 
-                  onClick={() => addToCart(selectedDish, selectedVariant, cookingRequest)}
+                  onClick={() => {
+                    // 1. Main Dish add karo (Bina sheet close kiye)
+                    addToCart(selectedDish, selectedVariant, cookingRequest, false);
+                    
+                    // 2. Sari selected recommendations add karo
+                    selectedRecs.forEach(rec => {
+                      const recVariant = rec.variants?.length > 0 ? rec.variants[0] : null;
+                      addToCart(rec, recVariant, "", false);
+                    });
+
+                    // 3. Sab add hone ke baad sheet close karo aur state reset karo
+                    setSelectedDish(null);
+                    setSelectedVariant(null);
+                    setCookingRequest('');
+                    setSelectedRecs([]);
+                  }}
                   disabled={selectedDish.variants?.length > 0 && !selectedVariant}
                   className="w-full bg-orange-500 disabled:bg-slate-300 text-white py-3.5 md:py-4 rounded-xl md:rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 transition-all"
                 >
-                  Add item • ₹{selectedVariant ? selectedVariant.price : selectedDish.price}
+                  Add {1 + selectedRecs.length > 1 ? `${1 + selectedRecs.length} items` : 'item'} • ₹
+                  {(selectedVariant ? selectedVariant.price : selectedDish.price) + selectedRecs.reduce((sum, r) => sum + r.price, 0)}
                 </button>
               </div>
             </div>
@@ -448,7 +473,24 @@ function App() {
     )
   }
 
+  // --- 🚨 NEW CHECKOUT VIEW WITH EMPTY STATE 🚨 ---
   if (view === 'checkout') {
+    // Agar cart khali ho jaye toh yeh dikhao
+    if (cart.length === 0) {
+      return (
+        <div className="w-full min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
+          <div className="w-24 h-24 bg-slate-200 rounded-full flex items-center justify-center mb-6 shadow-inner">
+            <ShoppingCart size={40} className="text-slate-400" />
+          </div>
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-2 italic">Your Cart is Empty</h2>
+          <p className="text-xs md:text-sm font-bold text-slate-400 uppercase tracking-widest mb-8">Add some delicious items to proceed.</p>
+          <button onClick={() => setView('menu')} className="bg-orange-500 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-orange-600 shadow-xl shadow-orange-500/20 active:scale-95 transition-all flex items-center gap-2">
+            <ChevronLeft size={18} /> Browse Menu
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="w-full min-h-screen bg-slate-50 p-4 md:p-8 pb-32 overflow-y-auto">
         <div className="max-w-2xl mx-auto">
