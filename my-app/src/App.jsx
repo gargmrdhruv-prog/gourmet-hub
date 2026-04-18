@@ -21,9 +21,9 @@ function App() {
   const [orderId, setOrderId] = useState('');
   
   // 🚨 ZOMATO BOTTOM SHEET STATES
-  const [selectedDish, setSelectedDish] = useState(null); // Kis dish par click kiya hai
-  const [selectedVariant, setSelectedVariant] = useState(null); // Half ya Full
-  const [cookingRequest, setCookingRequest] = useState(''); // Extra spicy etc.
+  const [selectedDish, setSelectedDish] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [cookingRequest, setCookingRequest] = useState('');
 
   const [storeSettings, setStoreSettings] = useState({
     name: 'Loading...', logo: '', tagline: '', taxes: [] 
@@ -112,7 +112,6 @@ function App() {
     }
   }, [selectedCategory, allDishes]);
 
-  // 🚨 UPDATED CART LOGIC FOR VARIANTS & REQUESTS
   const addToCart = (dish, variant = null, request = "") => {
     const actualPrice = variant ? variant.price : dish.price;
     const cartItemId = variant ? `${dish.id}-${variant.name}` : `${dish.id}-regular`;
@@ -124,7 +123,6 @@ function App() {
       setCart([...cart, { ...dish, cartItemId, price: actualPrice, selectedVariant: variant, cookingRequest: request, qty: 1 }]);
     }
     
-    // Reset sheet states after adding
     setSelectedDish(null);
     setSelectedVariant(null);
     setCookingRequest('');
@@ -144,7 +142,6 @@ function App() {
   const openDishSheet = (dish) => {
     setSelectedDish(dish);
     setCookingRequest('');
-    // Auto-select first variant if exists
     if (dish.variants && dish.variants.length > 0) {
       setSelectedVariant(dish.variants[0]);
     } else {
@@ -196,7 +193,7 @@ function App() {
     );
   }
 
-  // --- PORTALS (Unchanged) ---
+  // --- PORTALS ---
   if (currentURL.includes('super-admin-login')) return <SuperAdminLogin />;
   if (currentURL.includes('super-admin')) return localStorage.getItem('super_admin_auth') === 'true' ? <SuperAdminDashboard /> : <SuperAdminLogin />;
   if (currentURL.includes('admin-login')) {
@@ -209,9 +206,7 @@ function App() {
     return <AdminDashboard />;
   }
 
-
   // --- CUSTOMER VIEWS ---
-
   if (view === 'welcome') {
     return (
       <div className="w-full min-h-screen bg-slate-900 flex flex-col justify-end md:justify-center pb-12 md:pb-20 px-6 md:px-12 relative overflow-hidden">
@@ -232,10 +227,10 @@ function App() {
     return (
       <div className="w-full min-h-screen bg-slate-50 pb-32">
         
-        {/* HEADER (Clean, No Search) */}
+        {/* HEADER */}
         <header className="bg-white shadow-sm sticky top-0 z-40 border-b border-slate-100">
-          <div className="max-w-7xl mx-auto p-4 md:p-6 flex items-center gap-3 md:gap-5">
-            <div className="h-12 w-12 md:h-16 md:w-16 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm flex-shrink-0">
+          <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center gap-3 md:gap-5">
+            <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm flex-shrink-0">
               {storeSettings.logo ? <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-cover" /> : <span className="font-black text-xl text-orange-500 italic">{storeSettings.name.charAt(0)}</span>}
             </div>
             <div className="overflow-hidden">
@@ -246,18 +241,18 @@ function App() {
         </header>
 
         {/* CATEGORY NAV */}
-        <div className="sticky top-[81px] md:top-[105px] bg-white/95 backdrop-blur-md z-30 border-b border-slate-100/50 shadow-sm">
-          <nav className="flex gap-3 md:gap-4 overflow-x-auto p-3 md:p-4 max-w-7xl mx-auto no-scrollbar">
+        <div className="sticky top-[81px] md:top-[97px] bg-white/95 backdrop-blur-md z-30 border-b border-slate-100/50 shadow-sm">
+          <nav className="flex gap-3 md:gap-4 overflow-x-auto p-3 md:px-8 md:py-4 max-w-7xl mx-auto no-scrollbar">
             {categories.map(cat => (
               <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
-                className={`px-5 py-2.5 rounded-full text-[11px] md:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 ${selectedCategory === cat.id ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-100'}`}>
+                className={`px-5 py-2.5 md:py-2 md:px-6 rounded-full text-[11px] md:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 ${selectedCategory === cat.id ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20' : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-100'}`}>
                 {cat.name}
               </button>
             ))}
           </nav>
         </div>
 
-        {/* DISH GRID (Zomato Style Large Cards) */}
+        {/* 🚨 REFINED DISH GRID (Smaller, Tighter Images for Desktop) 🚨 */}
         <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
           {filteredDishes.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-20 px-4">
@@ -266,77 +261,71 @@ function App() {
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chef is curating dishes for this category.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+            // Changed from lg:grid-cols-3 to xl:grid-cols-4 so cards don't stretch too wide
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 md:gap-6">
               {filteredDishes.map(dish => {
-                // Find if any variant of this dish is in cart to show count
                 const cartItemsForDish = cart.filter(i => i.id === dish.id);
                 const totalQtyInCart = cartItemsForDish.reduce((sum, item) => sum + item.qty, 0);
-                
-                // Helper to check veg/nonveg
-                const isVeg = dish.tags?.some(t => t.toLowerCase().includes('veg') && !t.toLowerCase().includes('non'));
                 const isNonVeg = dish.tags?.some(t => t.toLowerCase().includes('non-veg'));
 
                 return (
                   <div key={dish.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl transition-all flex flex-col">
-                    {/* Biger Image */}
-                    <div className="w-full aspect-[4/3] bg-slate-100 relative cursor-pointer" onClick={() => openDishSheet(dish)}>
-                      <img src={dish.image_url || `https://source.unsplash.com/400x300/?food,${dish.name}`} className="w-full h-full object-cover" alt={dish.name} />
+                    
+                    {/* Fixed Height Image Wrapper to prevent giant sizes */}
+                    <div className="w-full h-44 sm:h-48 md:h-52 bg-slate-100 relative cursor-pointer flex-shrink-0" onClick={() => openDishSheet(dish)}>
+                      <img src={dish.image_url || `https://source.unsplash.com/600x400/?food,${dish.name}`} className="w-full h-full object-cover" alt={dish.name} />
                       {!dish.is_available && (
                         <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center backdrop-blur-sm">
                           <span className="text-sm font-black text-white uppercase tracking-widest bg-black/50 px-4 py-2 rounded-lg">Sold Out</span>
                         </div>
                       )}
-                      {/* Bestseller Tag over image */}
                       {dish.tags?.some(t => t.toLowerCase().includes('bestseller')) && (
-                        <div className="absolute top-4 left-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">
+                        <div className="absolute top-3 left-3 md:top-4 md:left-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">
                           ⭐ Bestseller
                         </div>
                       )}
                     </div>
                     
-                    <div className="p-5 flex flex-col flex-1">
-                      {/* Veg/Nonveg & Title */}
+                    <div className="p-4 md:p-5 flex flex-col flex-1">
                       <div className="flex items-start gap-2 mb-1">
                         <div className="mt-1 flex-shrink-0">
                           {isNonVeg ? (
-                            <div className="w-4 h-4 border-2 border-red-500 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-red-500 rounded-full"></div></div>
+                            <div className="w-3.5 h-3.5 border-2 border-red-500 flex items-center justify-center rounded-sm"><div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div></div>
                           ) : (
-                            <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
+                            <div className="w-3.5 h-3.5 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div></div>
                           )}
                         </div>
-                        <h3 className="font-black text-slate-800 text-lg leading-tight cursor-pointer" onClick={() => openDishSheet(dish)}>{dish.name}</h3>
+                        <h3 className="font-black text-slate-800 text-base md:text-lg leading-tight cursor-pointer" onClick={() => openDishSheet(dish)}>{dish.name}</h3>
                       </div>
 
-                      {/* Social Proof */}
-                      <div className="flex items-center gap-1.5 mb-3 pl-6">
+                      <div className="flex items-center gap-1.5 mb-3 pl-5 md:pl-6">
                         <div className="flex items-center gap-1 bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-[10px] font-black">
                           <Star size={10} className="fill-green-700" /> {dish.rating || 4.5}
                         </div>
-                        <span className="text-[10px] font-bold text-slate-400">{dish.order_count || 120}+ orders</span>
+                        <span className="text-[9px] md:text-[10px] font-bold text-slate-400">{dish.order_count || 120}+ orders</span>
                       </div>
 
-                      {/* Price & Add Button */}
-                      <div className="flex items-center justify-between mt-auto pl-6">
+                      <div className="flex items-center justify-between mt-auto pl-5 md:pl-6">
                         <div className="flex flex-col">
-                          <span className="font-black text-slate-900 text-lg">₹{dish.price}</span>
-                          {dish.variants && dish.variants.length > 0 && <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Customizable</span>}
+                          <span className="font-black text-slate-900 text-base md:text-lg">₹{dish.price}</span>
+                          {dish.variants && dish.variants.length > 0 && <span className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest">Customizable</span>}
                         </div>
 
                         {dish.is_available === false ? (
-                          <button disabled className="bg-slate-50 text-slate-300 px-6 py-2 rounded-xl font-black text-xs uppercase border border-slate-100">Out</button>
+                          <button disabled className="bg-slate-50 text-slate-300 px-4 py-2 rounded-xl font-black text-[10px] md:text-xs uppercase border border-slate-100">Out</button>
                         ) : totalQtyInCart > 0 ? (
-                           <div className="flex items-center gap-4 bg-orange-50 rounded-xl px-2 py-1 border border-orange-200">
-                              <button onClick={() => removeFromCart(cartItemsForDish[0].cartItemId)} className="font-black text-orange-600 text-lg px-2">-</button>
-                              <span className="text-sm font-black text-orange-600">{totalQtyInCart}</span>
-                              <button onClick={() => openDishSheet(dish)} className="font-black text-orange-600 text-lg px-2">+</button>
+                           <div className="flex items-center gap-3 md:gap-4 bg-orange-50 rounded-xl px-2 py-1 border border-orange-200">
+                              <button onClick={() => removeFromCart(cartItemsForDish[0].cartItemId)} className="font-black text-orange-600 text-base md:text-lg px-2">-</button>
+                              <span className="text-xs md:text-sm font-black text-orange-600">{totalQtyInCart}</span>
+                              <button onClick={() => openDishSheet(dish)} className="font-black text-orange-600 text-base md:text-lg px-2">+</button>
                            </div>
                         ) : (
-                          <button onClick={() => openDishSheet(dish)} className="bg-orange-100 text-orange-600 hover:bg-orange-500 hover:text-white px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-sm">
+                          <button onClick={() => openDishSheet(dish)} className="bg-orange-100 text-orange-600 hover:bg-orange-500 hover:text-white px-5 md:px-6 py-2 rounded-xl font-black text-[10px] md:text-xs uppercase tracking-widest transition-all shadow-sm">
                             Add +
                           </button>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-500 font-medium line-clamp-2 mt-4 pl-6">{dish.description}</p>
+                      <p className="text-[10px] md:text-[11px] text-slate-500 font-medium line-clamp-2 mt-3 md:mt-4 pl-5 md:pl-6">{dish.description}</p>
                     </div>
                   </div>
                 )
@@ -361,41 +350,38 @@ function App() {
         {/* 🚨 THE ZOMATO STYLE BOTTOM SHEET 🚨 */}
         {selectedDish && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
-            {/* Backdrop */}
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedDish(null)}></div>
             
-            {/* Sheet Content */}
             <div className="relative bg-white w-full md:w-[500px] h-[85vh] md:h-auto md:max-h-[90vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
               
-              {/* Close Button Floating */}
               <button onClick={() => setSelectedDish(null)} className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full backdrop-blur-md">
                 <X size={20} />
               </button>
 
               <div className="overflow-y-auto custom-scrollbar flex-1 pb-24">
-                <div className="w-full h-64 bg-slate-100 relative">
+                <div className="w-full h-56 md:h-64 bg-slate-100 relative">
                   <img src={selectedDish.image_url || `https://source.unsplash.com/600x400/?food,${selectedDish.name}`} className="w-full h-full object-cover" />
                 </div>
                 
-                <div className="p-6">
+                <div className="p-5 md:p-6">
                   <div className="flex items-center gap-2 mb-2">
                      <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
-                     <h2 className="text-2xl font-black text-slate-900">{selectedDish.name}</h2>
+                     <h2 className="text-xl md:text-2xl font-black text-slate-900">{selectedDish.name}</h2>
                   </div>
-                  <p className="text-sm text-slate-500 mb-6">{selectedDish.description}</p>
+                  <p className="text-xs md:text-sm text-slate-500 mb-6">{selectedDish.description}</p>
 
                   {/* VARIANTS SELECTION */}
                   {selectedDish.variants && selectedDish.variants.length > 0 && (
-                    <div className="mb-8">
-                      <h3 className="font-bold text-slate-800 mb-3 text-sm">Quantity <span className="text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Select Any 1</span></h3>
-                      <div className="space-y-3">
+                    <div className="mb-6 md:mb-8">
+                      <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Quantity <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Select Any 1</span></h3>
+                      <div className="space-y-2 md:space-y-3">
                         {selectedDish.variants.map((variant, idx) => (
-                          <label key={idx} className={`flex items-center justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedVariant?.name === variant.name ? 'border-orange-500 bg-orange-50/30' : 'border-slate-100 bg-white'}`}>
-                            <span className="font-bold text-slate-800">{variant.name}</span>
+                          <label key={idx} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedVariant?.name === variant.name ? 'border-orange-500 bg-orange-50/30' : 'border-slate-100 bg-white hover:border-orange-200'}`}>
+                            <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
                             <div className="flex items-center gap-3">
-                              <span className="font-black text-slate-900">₹{variant.price}</span>
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
-                                {selectedVariant?.name === variant.name && <div className="w-2.5 h-2.5 bg-orange-500 rounded-full"></div>}
+                              <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
+                              <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-2 flex items-center justify-center ${selectedVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
+                                {selectedVariant?.name === variant.name && <div className="w-2 h-2 md:w-2.5 md:h-2.5 bg-orange-500 rounded-full"></div>}
                               </div>
                             </div>
                             <input type="radio" name="variant" className="hidden" checked={selectedVariant?.name === variant.name} onChange={() => setSelectedVariant(variant)} />
@@ -406,11 +392,11 @@ function App() {
                   )}
 
                   {/* COOKING REQUEST */}
-                  <div className="mb-8">
-                    <h3 className="font-bold text-slate-800 mb-3 text-sm flex items-center gap-2"><MessageSquare size={16}/> Add a cooking request (optional)</h3>
+                  <div className="mb-6 md:mb-8">
+                    <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-xs md:text-sm flex items-center gap-2"><MessageSquare size={14}/> Add a cooking request (optional)</h3>
                     <textarea 
                       placeholder="e.g. Don't make it too spicy" 
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-medium text-slate-700 outline-none focus:border-orange-500 focus:bg-white transition-all resize-none h-24"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 md:p-4 text-xs md:text-sm font-medium text-slate-700 outline-none focus:border-orange-500 focus:bg-white transition-all resize-none h-20 md:h-24"
                       value={cookingRequest}
                       onChange={(e) => setCookingRequest(e.target.value)}
                     />
@@ -419,12 +405,12 @@ function App() {
                   {/* PERFECT PAIRINGS */}
                   {getSmartRecs(selectedDish).length > 0 && (
                     <div>
-                      <h3 className="font-bold text-slate-800 mb-4 text-sm">Recommended with this</h3>
-                      <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar">
+                      <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
+                      <div className="flex overflow-x-auto gap-3 md:gap-4 pb-4 no-scrollbar">
                         {getSmartRecs(selectedDish).map(rec => (
-                          <div key={rec.id} className="min-w-[140px] bg-white border border-slate-100 rounded-2xl p-3 shadow-sm shrink-0">
-                            <img src={rec.image_url} className="w-full h-20 object-cover rounded-xl mb-2 bg-slate-100" />
-                            <p className="font-bold text-slate-800 text-xs truncate mb-1">{rec.name}</p>
+                          <div key={rec.id} className="min-w-[130px] md:min-w-[140px] bg-white border border-slate-100 rounded-2xl p-2 md:p-3 shadow-sm shrink-0">
+                            <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
+                            <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-1">{rec.name}</p>
                             <div className="flex justify-between items-center">
                               <span className="font-black text-slate-900 text-xs">₹{rec.price}</span>
                               <button onClick={() => addToCart(rec)} className="bg-orange-50 text-orange-600 p-1.5 rounded-lg"><Plus size={14}/></button>
@@ -442,7 +428,7 @@ function App() {
                 <button 
                   onClick={() => addToCart(selectedDish, selectedVariant, cookingRequest)}
                   disabled={selectedDish.variants?.length > 0 && !selectedVariant}
-                  className="w-full bg-orange-500 disabled:bg-slate-300 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 transition-all"
+                  className="w-full bg-orange-500 disabled:bg-slate-300 text-white py-3.5 md:py-4 rounded-xl md:rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 transition-all"
                 >
                   Add item • ₹{selectedVariant ? selectedVariant.price : selectedDish.price}
                 </button>
@@ -479,8 +465,8 @@ function App() {
                  </div>
                  
                  <div className="flex justify-between items-end mt-2">
-                    <div className="flex-1">
-                      {item.cookingRequest && <p className="text-xs text-orange-600 bg-orange-50 p-2 rounded-lg italic inline-block font-medium">" {item.cookingRequest} "</p>}
+                    <div className="flex-1 pr-4">
+                      {item.cookingRequest && <p className="text-[11px] text-orange-600 bg-orange-50 p-2 rounded-lg italic inline-block font-medium">" {item.cookingRequest} "</p>}
                     </div>
                     <div className="flex items-center gap-4 bg-slate-100 rounded-xl px-2 py-1 shrink-0">
                       <button onClick={() => removeFromCart(item.cartItemId)} className="font-black text-slate-600 text-lg px-2 hover:text-orange-600">-</button>
@@ -525,7 +511,7 @@ function App() {
     )
   }
 
-  // --- RECEIPT VIEW (Unchanged) ---
+  // --- RECEIPT VIEW ---
   if (view === 'receipt') {
     return (
       <div className="w-full min-h-screen bg-slate-900 p-4 md:p-8 flex items-center justify-center">
