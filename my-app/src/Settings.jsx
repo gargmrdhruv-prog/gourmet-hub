@@ -42,7 +42,6 @@ const Settings = () => {
         setCloseTime(data.closing_time || '');
         setLogoUrl(data.logo_url || '');
         
-        // 🚨 TAXES FETCHING LOGIC
         setTaxes(data.taxes || [
           { id: "cgst", name: "CGST", rate: 2.5, active: false },
           { id: "sgst", name: "SGST", rate: 2.5, active: false }
@@ -85,7 +84,7 @@ const Settings = () => {
         address: address,
         opening_time: safeOpenTime,
         closing_time: safeCloseTime,
-        logo_url: finalLogoUrl, // 🚨 FIX: Yahan comma miss tha aapke code mein
+        logo_url: finalLogoUrl, 
         taxes: taxes
       };
 
@@ -130,77 +129,78 @@ const Settings = () => {
 
   return (
     <AdminLayout>
-      <div className="p-6 max-w-4xl mx-auto w-full">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800">Restaurant Settings ⚙️</h1>
-          <p className="text-slate-500 text-sm mt-1">Manage your storefront details for {adminUser?.name}</p>
+      <div className="max-w-4xl mx-auto w-full">
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-800">Restaurant Settings ⚙️</h1>
+          <p className="text-slate-500 text-xs md:text-sm mt-1">Manage your storefront details for {adminUser?.name}</p>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-8">
+        <form onSubmit={handleSave} className="space-y-6 md:space-y-8">
           
           {/* BRANDING SECTION */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2 border-b pb-3"><Store size={20} className="text-orange-500" /> Branding & Identity</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h2 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2 border-b pb-3"><Store size={18} className="text-orange-500 md:w-5 md:h-5" /> Branding & Identity</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="col-span-1 md:col-span-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Restaurant Logo</label>
-                <div className="flex items-center gap-6">
-                  <div className="h-24 w-24 rounded-2xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden relative">
-                    {logoFile ? <img src={URL.createObjectURL(logoFile)} className="h-full w-full object-contain p-2" /> : logoUrl ? <img src={logoUrl} className="h-full w-full object-contain p-2" /> : <span className="text-xs text-slate-400 font-bold">No Logo</span>}
+                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Restaurant Logo</label>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 md:gap-6">
+                  <div className="h-20 w-20 md:h-24 md:w-24 rounded-2xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden relative flex-shrink-0">
+                    {logoFile ? <img src={URL.createObjectURL(logoFile)} className="h-full w-full object-contain p-2" /> : logoUrl ? <img src={logoUrl} className="h-full w-full object-contain p-2" /> : <span className="text-[10px] md:text-xs text-slate-400 font-bold">No Logo</span>}
                   </div>
-                  <div className="relative">
+                  <div className="relative w-full sm:w-auto">
                     <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                    <button type="button" className="bg-slate-100 text-slate-700 px-6 py-3 rounded-xl font-bold flex items-center gap-2"><Upload size={18} /> Choose New Logo</button>
+                    <button type="button" className="w-full sm:w-auto bg-slate-100 text-slate-700 px-4 py-3 md:px-6 rounded-xl font-bold flex justify-center items-center gap-2 text-sm"><Upload size={16} /> Choose New Logo</button>
                   </div>
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Store size={12}/> Restaurant Name</label>
-                <input type="text" value={name || adminUser?.name || ''} readOnly className="w-full bg-slate-100 border-none rounded-xl p-4 font-bold text-slate-400 cursor-not-allowed select-none" />
+                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Store size={12}/> Restaurant Name</label>
+                <input type="text" value={name || adminUser?.name || ''} readOnly className="w-full bg-slate-100 border-none rounded-xl p-3 md:p-4 font-bold text-slate-400 cursor-not-allowed select-none text-sm md:text-base" />
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Type size={12}/> Tagline</label>
-                <input type="text" value={tagline} onChange={(e) => setTagline(e.target.value)} className="w-full bg-slate-50 border-none rounded-xl p-4 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" placeholder="E.g. Delivering Happiness..." />
+                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Type size={12}/> Tagline</label>
+                <input type="text" value={tagline} onChange={(e) => setTagline(e.target.value)} className="w-full bg-slate-50 border-none rounded-xl p-3 md:p-4 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 text-sm md:text-base" placeholder="E.g. Delivering Happiness..." />
               </div>
             </div>
           </div>
 
           {/* CONTACT SECTION */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2 border-b pb-3"><Phone size={20} className="text-blue-500" /> Contact & Location</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h2 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2 border-b pb-3"><Phone size={18} className="text-blue-500 md:w-5 md:h-5" /> Contact & Location</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="col-span-1 md:col-span-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><MapPin size={12}/> Full Address</label>
-                <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows="2" className="w-full bg-slate-50 border-none rounded-xl p-4 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 resize-none" />
+                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><MapPin size={12}/> Full Address</label>
+                <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows="2" className="w-full bg-slate-50 border-none rounded-xl p-3 md:p-4 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 resize-none text-sm md:text-base" />
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Clock size={12}/> Opening Time</label>
-                <input type="time" value={openTime} onChange={(e) => setOpenTime(e.target.value)} className="w-full bg-slate-50 border-none rounded-xl p-4 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" />
+                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Clock size={12}/> Opening Time</label>
+                <input type="time" value={openTime} onChange={(e) => setOpenTime(e.target.value)} className="w-full bg-slate-50 border-none rounded-xl p-3 md:p-4 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 text-sm md:text-base" />
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Clock size={12}/> Closing Time</label>
-                <input type="time" value={closeTime} onChange={(e) => setCloseTime(e.target.value)} className="w-full bg-slate-50 border-none rounded-xl p-4 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" />
+                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Clock size={12}/> Closing Time</label>
+                <input type="time" value={closeTime} onChange={(e) => setCloseTime(e.target.value)} className="w-full bg-slate-50 border-none rounded-xl p-3 md:p-4 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 text-sm md:text-base" />
               </div>
             </div>
           </div>
 
           {/* 🚨 TAX MANAGEMENT SECTION 🚨 */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <div className="flex justify-between items-center mb-6 border-b pb-3">
-              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Receipt size={20} className="text-green-500" /> Billing & Taxes</h2>
+          <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 border-b pb-3 gap-3 sm:gap-0">
+              <h2 className="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2"><Receipt size={18} className="text-green-500 md:w-5 md:h-5" /> Billing & Taxes</h2>
               <button 
                 type="button" 
                 onClick={() => setTaxes([...taxes, { id: Date.now().toString(), name: 'New Tax', rate: 0, active: true }])}
-                className="text-xs font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 bg-orange-50 px-3 py-1.5 rounded-lg transition-colors"
+                className="w-full sm:w-auto justify-center text-[10px] md:text-xs font-bold text-orange-500 hover:text-orange-600 flex items-center gap-1 bg-orange-50 px-3 py-2 md:py-1.5 rounded-lg transition-colors"
               >
                 <Plus size={14} /> Add Custom Tax
               </button>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {taxes.map((tax, index) => (
-                <div key={tax.id} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${tax.active ? 'border-green-200 bg-green-50/30' : 'border-slate-200 bg-slate-50'}`}>
-                  <div className="flex items-center gap-4 w-full">
+                <div key={tax.id} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 md:p-4 rounded-xl border transition-all gap-3 sm:gap-0 ${tax.active ? 'border-green-200 bg-green-50/30' : 'border-slate-200 bg-slate-50'}`}>
+                  
+                  <div className="flex items-center gap-3 md:gap-4 w-full sm:w-auto">
                     {/* Active Toggle */}
                     <input 
                       type="checkbox" 
@@ -210,7 +210,7 @@ const Settings = () => {
                         newTaxes[index].active = e.target.checked;
                         setTaxes(newTaxes);
                       }}
-                      className="w-5 h-5 accent-green-500 cursor-pointer"
+                      className="w-4 h-4 md:w-5 md:h-5 accent-green-500 cursor-pointer flex-shrink-0"
                     />
                     
                     {/* Tax Name */}
@@ -223,11 +223,13 @@ const Settings = () => {
                         setTaxes(newTaxes);
                       }}
                       disabled={!tax.active}
-                      className="bg-transparent border-none font-bold text-slate-700 outline-none w-1/3 disabled:opacity-50"
+                      className="bg-transparent border-none font-bold text-sm md:text-base text-slate-700 outline-none w-full sm:w-32 disabled:opacity-50"
                     />
+                  </div>
 
+                  <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-3 md:gap-4 pl-7 sm:pl-0">
                     {/* Tax Rate % */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 md:gap-2">
                       <input 
                         type="number" 
                         step="0.1"
@@ -239,34 +241,36 @@ const Settings = () => {
                           setTaxes(newTaxes);
                         }}
                         disabled={!tax.active}
-                        className="w-20 bg-white border border-slate-200 rounded-lg p-2 text-center font-bold outline-none focus:border-orange-500 disabled:opacity-50"
+                        className="w-16 md:w-20 bg-white border border-slate-200 rounded-lg p-1.5 md:p-2 text-center text-sm md:text-base font-bold outline-none focus:border-orange-500 disabled:opacity-50"
                       />
-                      <span className="font-bold text-slate-400">%</span>
+                      <span className="font-bold text-slate-400 text-sm md:text-base">%</span>
                     </div>
-                  </div>
 
-                  {/* Delete Button (Only for custom taxes, cant delete default CGST/SGST) */}
-                  {tax.id !== 'cgst' && tax.id !== 'sgst' && (
-                    <button 
-                      type="button" 
-                      onClick={() => setTaxes(taxes.filter(t => t.id !== tax.id))}
-                      className="text-red-400 hover:text-red-500 p-2 transition-colors"
-                      title="Delete this tax"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
+                    {/* Delete Button */}
+                    {tax.id !== 'cgst' && tax.id !== 'sgst' ? (
+                      <button 
+                        type="button" 
+                        onClick={() => setTaxes(taxes.filter(t => t.id !== tax.id))}
+                        className="text-red-400 hover:text-red-500 p-2 transition-colors flex-shrink-0"
+                        title="Delete this tax"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    ) : (
+                      <div className="w-8"></div> /* Spacer for alignment */
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4">
+            <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4">
               * Active taxes will be automatically calculated on the total bill in the customer app.
             </p>
           </div>
 
           {/* SAVE BUTTON */}
-          <div className="flex justify-end">
-            <button type="submit" disabled={saving} className="bg-orange-500 text-white px-8 py-4 rounded-xl font-black text-sm uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 active:scale-95">
+          <div className="flex justify-end pt-2 pb-6">
+            <button type="submit" disabled={saving} className="w-full sm:w-auto justify-center bg-orange-500 text-white px-8 py-4 rounded-xl font-black text-sm uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 active:scale-95">
               {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />} Save All Settings
             </button>
           </div>
