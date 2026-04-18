@@ -27,7 +27,7 @@ const SuperAdminLogin = () => {
 
   // Dynamic Getters (LocalStorage se uthayega warna default dega)
   const getMasterEmail = () => localStorage.getItem('master_email') || "founder@gourmet.com";
-  const getMasterPassword = () => localStorage.getItem('master_password') || "Admin@123";
+  const getMasterPassword = () => localStorage.getItem('master_password') || "Aapka_Naya_Password_Yahan";
 
   // --- 1. LOGIN HANDLER ---
   const handleLogin = (e) => {
