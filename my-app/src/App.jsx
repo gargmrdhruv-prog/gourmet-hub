@@ -4,7 +4,8 @@ import AdminLogin from './AdminLogin';
 import AdminDashboard from './AdminDashboard';
 import Settings from "./Settings";
 import SuperAdminDashboard from './SuperAdminDashboard'; 
-import { Loader2, CheckCircle2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus } from 'lucide-react';import SuperAdminLogin from './SuperAdminLogin';
+import { Loader2, CheckCircle2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus } from 'lucide-react';
+import SuperAdminLogin from './SuperAdminLogin';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -19,7 +20,6 @@ function App() {
   const [tableNumber, setTableNumber] = useState('1'); 
   const [orderId, setOrderId] = useState('');
   
-  // 🚨 ZOMATO BOTTOM SHEET STATES
   const [selectedDish, setSelectedDish] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [cookingRequest, setCookingRequest] = useState('');
@@ -111,16 +111,19 @@ function App() {
     }
   }, [selectedCategory, allDishes]);
 
+  // 🚨 FIX 1: Cart mein State Batching fix ki taaki ek sath 2 item add ho sakein
   const addToCart = (dish, variant = null, request = "") => {
     const actualPrice = variant ? variant.price : dish.price;
     const cartItemId = variant ? `${dish.id}-${variant.name}` : `${dish.id}-regular`;
 
-    const existing = cart.find(i => i.cartItemId === cartItemId);
-    if (existing) {
-      setCart(cart.map(i => i.cartItemId === cartItemId ? { ...i, qty: i.qty + 1, cookingRequest: request || i.cookingRequest } : i));
-    } else {
-      setCart([...cart, { ...dish, cartItemId, price: actualPrice, selectedVariant: variant, cookingRequest: request, qty: 1 }]);
-    }
+    setCart(prevCart => {
+      const existing = prevCart.find(i => i.cartItemId === cartItemId);
+      if (existing) {
+        return prevCart.map(i => i.cartItemId === cartItemId ? { ...i, qty: i.qty + 1, cookingRequest: request || i.cookingRequest } : i);
+      } else {
+        return [...prevCart, { ...dish, cartItemId, price: actualPrice, selectedVariant: variant, cookingRequest: request, qty: 1 }];
+      }
+    });
     
     setSelectedDish(null);
     setSelectedVariant(null);
@@ -128,9 +131,11 @@ function App() {
   }
 
   const removeFromCart = (cartItemId) => {
-    const existing = cart.find(i => i.cartItemId === cartItemId)
-    if (existing.qty === 1) setCart(cart.filter(i => i.cartItemId !== cartItemId))
-    else setCart(cart.map(i => i.cartItemId === cartItemId ? { ...i, qty: i.qty - 1 } : i))
+    setCart(prevCart => {
+      const existing = prevCart.find(i => i.cartItemId === cartItemId);
+      if (existing.qty === 1) return prevCart.filter(i => i.cartItemId !== cartItemId);
+      return prevCart.map(i => i.cartItemId === cartItemId ? { ...i, qty: i.qty - 1 } : i);
+    });
   }
 
   const getSmartRecs = (currentDish) => {
@@ -146,6 +151,22 @@ function App() {
     } else {
       setSelectedVariant(null);
     }
+  };
+
+  // 🚨 FIX 2: Yeh function ek click par dono items ko cart mein bhejege
+  const handleAddPairing = (recDish) => {
+    // Agar main dish mein Half/Full hai par select nahi kiya toh pehle wo roko
+    if (selectedDish.variants?.length > 0 && !selectedVariant) {
+      alert("Please select Quantity (Half/Full) for the main dish first!");
+      return;
+    }
+    
+    // Step 1: Main dish ko uski settings (Half/Full, Special Request) ke sath cart mein daalo
+    addToCart(selectedDish, selectedVariant, cookingRequest);
+    
+    // Step 2: Uske turant baad Recommended dish ko bhi daal do
+    const recVariant = recDish.variants?.length > 0 ? recDish.variants[0] : null; 
+    addToCart(recDish, recVariant, ""); 
   };
 
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
@@ -225,8 +246,6 @@ function App() {
   if (view === 'menu') {
     return (
       <div className="w-full min-h-screen bg-slate-50 pb-32">
-        
-        {/* HEADER */}
         <header className="bg-white shadow-sm sticky top-0 z-40 border-b border-slate-100">
           <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center gap-3 md:gap-5">
             <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm flex-shrink-0">
@@ -239,7 +258,6 @@ function App() {
           </div>
         </header>
 
-        {/* CATEGORY NAV */}
         <div className="sticky top-[81px] md:top-[97px] bg-white/95 backdrop-blur-md z-30 border-b border-slate-100/50 shadow-sm">
           <nav className="flex gap-3 md:gap-4 overflow-x-auto p-3 md:px-8 md:py-4 max-w-7xl mx-auto no-scrollbar">
             {categories.map(cat => (
@@ -251,7 +269,6 @@ function App() {
           </nav>
         </div>
 
-        {/* 🚨 REFINED DISH GRID (Smaller, Tighter Images for Desktop) 🚨 */}
         <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
           {filteredDishes.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-20 px-4">
@@ -260,7 +277,6 @@ function App() {
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chef is curating dishes for this category.</p>
             </div>
           ) : (
-            // Changed from lg:grid-cols-3 to xl:grid-cols-4 so cards don't stretch too wide
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 md:gap-6">
               {filteredDishes.map(dish => {
                 const cartItemsForDish = cart.filter(i => i.id === dish.id);
@@ -269,8 +285,6 @@ function App() {
 
                 return (
                   <div key={dish.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl transition-all flex flex-col">
-                    
-                    {/* Fixed Height Image Wrapper to prevent giant sizes */}
                     <div className="w-full h-44 sm:h-48 md:h-52 bg-slate-100 relative cursor-pointer flex-shrink-0" onClick={() => openDishSheet(dish)}>
                       <img src={dish.image_url || `https://source.unsplash.com/600x400/?food,${dish.name}`} className="w-full h-full object-cover" alt={dish.name} />
                       {!dish.is_available && (
@@ -333,7 +347,6 @@ function App() {
           )}  
         </div>
 
-        {/* BOTTOM CART BAR */}
         {cart.length > 0 && (
           <div className="fixed bottom-0 left-0 right-0 md:bottom-8 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-xl bg-white md:rounded-[2rem] p-4 border-t border-slate-100 md:border md:shadow-2xl z-40 flex justify-between items-center shadow-[0_-10px_20px_rgba(0,0,0,0.05)] animate-in slide-in-from-bottom-10">
              <div className="pl-2">
@@ -346,7 +359,6 @@ function App() {
           </div>
         )}
 
-        {/* 🚨 THE ZOMATO STYLE BOTTOM SHEET 🚨 */}
         {selectedDish && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedDish(null)}></div>
@@ -369,7 +381,6 @@ function App() {
                   </div>
                   <p className="text-xs md:text-sm text-slate-500 mb-6">{selectedDish.description}</p>
 
-                  {/* VARIANTS SELECTION */}
                   {selectedDish.variants && selectedDish.variants.length > 0 && (
                     <div className="mb-6 md:mb-8">
                       <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Quantity <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Select Any 1</span></h3>
@@ -390,7 +401,6 @@ function App() {
                     </div>
                   )}
 
-                  {/* COOKING REQUEST */}
                   <div className="mb-6 md:mb-8">
                     <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-xs md:text-sm flex items-center gap-2"><MessageSquare size={14}/> Add a cooking request (optional)</h3>
                     <textarea 
@@ -401,7 +411,6 @@ function App() {
                     />
                   </div>
 
-                  {/* PERFECT PAIRINGS */}
                   {getSmartRecs(selectedDish).length > 0 && (
                     <div>
                       <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
@@ -412,7 +421,8 @@ function App() {
                             <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-1">{rec.name}</p>
                             <div className="flex justify-between items-center">
                               <span className="font-black text-slate-900 text-xs">₹{rec.price}</span>
-                              <button onClick={() => addToCart(rec)} className="bg-orange-50 text-orange-600 p-1.5 rounded-lg"><Plus size={14}/></button>
+                              {/* 🚨 FIX 3: Yahan button par naya function add kiya hai */}
+                              <button onClick={() => handleAddPairing(rec)} className="bg-orange-50 text-orange-600 p-1.5 rounded-lg"><Plus size={14}/></button>
                             </div>
                           </div>
                         ))}
@@ -422,7 +432,6 @@ function App() {
                 </div>
               </div>
 
-              {/* Add to Cart Sticky Button inside sheet */}
               <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
                 <button 
                   onClick={() => addToCart(selectedDish, selectedVariant, cookingRequest)}
@@ -439,7 +448,6 @@ function App() {
     )
   }
 
-  // --- CHECKOUT VIEW ---
   if (view === 'checkout') {
     return (
       <div className="w-full min-h-screen bg-slate-50 p-4 md:p-8 pb-32 overflow-y-auto">
@@ -510,7 +518,6 @@ function App() {
     )
   }
 
-  // --- RECEIPT VIEW ---
   if (view === 'receipt') {
     return (
       <div className="w-full min-h-screen bg-slate-900 p-4 md:p-8 flex items-center justify-center">
