@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from './AdminLayout';
 import { supabase } from './supabase';
-import { Store, Phone, Clock, MapPin, Upload, Loader2, Save, Type, Receipt, Plus, Trash2 } from 'lucide-react';
+import { Store, Phone, Clock, MapPin, Upload, Loader2, Save, Type, Receipt, Plus, Trash2, QrCode, Copy, Download, ExternalLink } from 'lucide-react';
 
 const Settings = () => {
   const [loading, setLoading] = useState(true);
@@ -121,6 +121,32 @@ const Settings = () => {
     }
   };
 
+  // 🚨 QR CODE GENERATION LOGIC 🚨
+  const menuLink = adminUser ? `${window.location.origin}/?rest=${adminUser.id}` : '';
+  const qrCodeUrl = adminUser ? `https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=${encodeURIComponent(menuLink)}` : '';
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(menuLink);
+    alert("✅ Menu link copied to clipboard!");
+  };
+
+  const downloadQR = async () => {
+    try {
+      const response = await fetch(qrCodeUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${name || 'Restaurant'}-Menu-QR.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("Failed to download QR code. You can right-click the image and save it.");
+    }
+  };
+
   if (loading) return (
     <AdminLayout>
       <div className="flex flex-col h-[60vh] items-center justify-center"><Loader2 className="animate-spin text-orange-500 mb-4" size={40} /></div>
@@ -164,6 +190,56 @@ const Settings = () => {
             </div>
           </div>
 
+          {/* 🚨 NEW: UNIVERSAL QR CODE & LINK SECTION 🚨 */}
+          <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <h2 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2 border-b pb-3"><QrCode size={18} className="text-purple-500 md:w-5 md:h-5" /> Live Menu & Universal QR Code</h2>
+            
+            <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
+              {/* QR Image */}
+              <div className="flex flex-col items-center gap-3 shrink-0">
+                <div className="w-40 h-40 md:w-48 md:h-48 bg-white border-4 border-slate-100 rounded-2xl shadow-sm p-2 flex items-center justify-center relative overflow-hidden group">
+                  {qrCodeUrl ? (
+                    <img src={qrCodeUrl} alt="Menu QR Code" className="w-full h-full object-contain" />
+                  ) : (
+                    <Loader2 className="animate-spin text-slate-300" size={32} />
+                  )}
+                  {/* Hover Overlay */}
+                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl backdrop-blur-sm cursor-pointer" onClick={downloadQR}>
+                     <Download size={24} className="text-white mb-2" />
+                     <span className="text-[10px] font-black text-white uppercase tracking-widest">Download HD</span>
+                  </div>
+                </div>
+                <button type="button" onClick={downloadQR} className="text-xs font-black text-purple-600 uppercase tracking-widest hover:underline flex items-center gap-1">
+                  <Download size={14} /> Save to Print
+                </button>
+              </div>
+
+              {/* Link Details */}
+              <div className="flex-1 w-full space-y-4">
+                <div>
+                  <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Your Unique Menu URL</label>
+                  <div className="flex items-center gap-2">
+                    <input type="text" readOnly value={menuLink} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-sm font-bold text-slate-600 outline-none truncate" />
+                    <button type="button" onClick={copyToClipboard} className="bg-slate-900 text-white p-3 md:p-4 rounded-xl hover:bg-slate-800 transition-all shrink-0" title="Copy Link">
+                      <Copy size={18} />
+                    </button>
+                  </div>
+                </div>
+                <div className="bg-purple-50 border border-purple-100 rounded-xl p-4">
+                  <h4 className="text-xs font-black text-purple-700 uppercase tracking-widest mb-1 flex items-center gap-1.5"><Store size={14}/> How to use this?</h4>
+                  <p className="text-[11px] md:text-xs text-purple-600/80 font-medium leading-relaxed">
+                    Print this single QR code and place it on all your tables. Customers will scan it, view your curated menu, and enter their table number during checkout. No need to manage 20 different QR codes!
+                  </p>
+                </div>
+                <div className="pt-2">
+                   <a href={menuLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-black text-blue-600 uppercase tracking-widest hover:underline">
+                     Open Live Menu <ExternalLink size={14} />
+                   </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* CONTACT SECTION */}
           <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2 border-b pb-3"><Phone size={18} className="text-blue-500 md:w-5 md:h-5" /> Contact & Location</h2>
@@ -183,7 +259,7 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* 🚨 TAX MANAGEMENT SECTION 🚨 */}
+          {/* TAX MANAGEMENT SECTION */}
           <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 border-b pb-3 gap-3 sm:gap-0">
               <h2 className="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2"><Receipt size={18} className="text-green-500 md:w-5 md:h-5" /> Billing & Taxes</h2>
@@ -201,7 +277,6 @@ const Settings = () => {
                 <div key={tax.id} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 md:p-4 rounded-xl border transition-all gap-3 sm:gap-0 ${tax.active ? 'border-green-200 bg-green-50/30' : 'border-slate-200 bg-slate-50'}`}>
                   
                   <div className="flex items-center gap-3 md:gap-4 w-full sm:w-auto">
-                    {/* Active Toggle */}
                     <input 
                       type="checkbox" 
                       checked={tax.active}
@@ -213,7 +288,6 @@ const Settings = () => {
                       className="w-4 h-4 md:w-5 md:h-5 accent-green-500 cursor-pointer flex-shrink-0"
                     />
                     
-                    {/* Tax Name */}
                     <input 
                       type="text" 
                       value={tax.name}
@@ -228,7 +302,6 @@ const Settings = () => {
                   </div>
 
                   <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-3 md:gap-4 pl-7 sm:pl-0">
-                    {/* Tax Rate % */}
                     <div className="flex items-center gap-1.5 md:gap-2">
                       <input 
                         type="number" 
@@ -246,7 +319,6 @@ const Settings = () => {
                       <span className="font-bold text-slate-400 text-sm md:text-base">%</span>
                     </div>
 
-                    {/* Delete Button */}
                     {tax.id !== 'cgst' && tax.id !== 'sgst' ? (
                       <button 
                         type="button" 
@@ -257,7 +329,7 @@ const Settings = () => {
                         <Trash2 size={16} />
                       </button>
                     ) : (
-                      <div className="w-8"></div> /* Spacer for alignment */
+                      <div className="w-8"></div>
                     )}
                   </div>
                 </div>
@@ -268,7 +340,6 @@ const Settings = () => {
             </p>
           </div>
 
-          {/* SAVE BUTTON */}
           <div className="flex justify-end pt-2 pb-6">
             <button type="submit" disabled={saving} className="w-full sm:w-auto justify-center bg-orange-500 text-white px-8 py-4 rounded-xl font-black text-sm uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 active:scale-95">
               {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />} Save All Settings
