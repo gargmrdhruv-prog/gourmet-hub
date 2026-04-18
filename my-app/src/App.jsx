@@ -20,12 +20,14 @@ function App() {
   const [tableNumber, setTableNumber] = useState('1'); 
   const [orderId, setOrderId] = useState('');
   
-  // ZOMATO BOTTOM SHEET STATES
+  // 🚨 ZOMATO BOTTOM SHEET STATES (UPGRADED)
   const [selectedDish, setSelectedDish] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [cookingRequest, setCookingRequest] = useState('');
-  const [selectedRecs, setSelectedRecs] = useState([]); 
-  const [selectedRecVariants, setSelectedRecVariants] = useState({}); // 🚨 RECS ke variants store karega
+  
+  // Naye states Quantity aur Multi-Variant Recommendations ke liye
+  const [mainDishQty, setMainDishQty] = useState(1); 
+  const [sheetRecs, setSheetRecs] = useState({}); // Store karega: {'dishId-Half': {dish, variant, qty: 1}, ...}
 
   // CUSTOMIZE CART ITEM STATES
   const [editingCartItem, setEditingCartItem] = useState(null);
@@ -119,16 +121,18 @@ function App() {
     }
   }, [selectedCategory, allDishes]);
 
-  const addToCart = (dish, variant = null, request = "", closeSheet = true) => {
+  // 🚨 Add to Cart updated to support Direct Quantity
+  const addToCart = (dish, variant = null, request = "", closeSheet = true, qtyToAdd = 1) => {
+    if (qtyToAdd <= 0) return;
     const actualPrice = variant ? variant.price : dish.price;
     const cartItemId = variant ? `${dish.id}-${variant.name}` : `${dish.id}-regular`;
 
     setCart(prevCart => {
       const existing = prevCart.find(i => i.cartItemId === cartItemId);
       if (existing) {
-        return prevCart.map(i => i.cartItemId === cartItemId ? { ...i, qty: i.qty + 1, cookingRequest: request || i.cookingRequest } : i);
+        return prevCart.map(i => i.cartItemId === cartItemId ? { ...i, qty: i.qty + qtyToAdd, cookingRequest: request || i.cookingRequest } : i);
       } else {
-        return [...prevCart, { ...dish, cartItemId, price: actualPrice, selectedVariant: variant, cookingRequest: request, qty: 1 }];
+        return [...prevCart, { ...dish, cartItemId, price: actualPrice, selectedVariant: variant, cookingRequest: request, qty: qtyToAdd }];
       }
     });
     
@@ -136,8 +140,8 @@ function App() {
       setSelectedDish(null);
       setSelectedVariant(null);
       setCookingRequest('');
-      setSelectedRecs([]);
-      setSelectedRecVariants({});
+      setMainDishQty(1);
+      setSheetRecs({});
     }
   }
 
@@ -149,7 +153,6 @@ function App() {
     });
   }
 
-  // 🚨 CUSTOMIZE CART ITEM LOGIC
   const openEditCartItem = (item) => {
     setEditingCartItem(item);
     setEditCartVariant(item.selectedVariant);
@@ -163,10 +166,8 @@ function App() {
       const existing = filtered.find(i => i.cartItemId === newCartItemId);
       
       if (existing) {
-        // Agar same variant wala pehle se hai toh qty merge kardo
         return filtered.map(i => i.cartItemId === newCartItemId ? { ...i, qty: i.qty + editingCartItem.qty, cookingRequest: editCartRequest || i.cookingRequest } : i);
       } else {
-        // Naya variant update kardo
         return [...filtered, { 
           ...editingCartItem, 
           cartItemId: newCartItemId, 
@@ -187,8 +188,8 @@ function App() {
   const openDishSheet = (dish) => {
     setSelectedDish(dish);
     setCookingRequest('');
-    setSelectedRecs([]); 
-    setSelectedRecVariants({});
+    setMainDishQty(1);
+    setSheetRecs({});
     if (dish.variants && dish.variants.length > 0) {
       setSelectedVariant(dish.variants[0]);
     } else {
@@ -196,21 +197,35 @@ function App() {
     }
   };
 
-  // 🚨 RECOMMENDATIONS KO SELECT AUR VARIANTS MANAGE KARNA
-  const toggleRec = (rec) => {
-    setSelectedRecs(prev => {
-      const exists = prev.find(r => r.id === rec.id);
-      if (exists) {
-        const newVars = {...selectedRecVariants};
-        delete newVars[rec.id];
-        setSelectedRecVariants(newVars);
-        return prev.filter(r => r.id !== rec.id);
+  // 🚨 NAYA FUNCTION: Handle quantities for recommended items inline
+  const updateSheetRecQty = (dish, variant, change) => {
+    const key = variant ? `${dish.id}-${variant.name}` : `${dish.id}-regular`;
+    setSheetRecs(prev => {
+      const currentQty = prev[key]?.qty || 0;
+      const newQty = currentQty + change;
+      
+      if (newQty <= 0) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
       }
-      if (rec.variants && rec.variants.length > 0) {
-        setSelectedRecVariants(v => ({...v, [rec.id]: rec.variants[0]}));
-      }
-      return [...prev, rec]; 
+      return {
+        ...prev,
+        [key]: { dish, variant, qty: newQty }
+      };
     });
+  };
+
+  // 🚨 Calculate totals inside the bottom sheet
+  const getSheetTotals = () => {
+    if (!selectedDish) return { items: 0, price: 0 };
+    const mainPrice = (selectedVariant ? selectedVariant.price : selectedDish.price) * mainDishQty;
+    const recPrice = Object.values(sheetRecs).reduce((sum, item) => sum + (item.variant ? item.variant.price : item.dish.price) * item.qty, 0);
+    const recItems = Object.values(sheetRecs).reduce((sum, item) => sum + item.qty, 0);
+    return {
+      items: mainDishQty + recItems,
+      price: mainPrice + recPrice
+    };
   };
 
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
@@ -257,7 +272,6 @@ function App() {
     );
   }
 
-  // --- PORTALS ---
   if (currentURL.includes('super-admin-login')) return <SuperAdminLogin />;
   if (currentURL.includes('super-admin')) return localStorage.getItem('super_admin_auth') === 'true' ? <SuperAdminDashboard /> : <SuperAdminLogin />;
   if (currentURL.includes('admin-login')) {
@@ -270,7 +284,6 @@ function App() {
     return <AdminDashboard />;
   }
 
-  // --- CUSTOMER VIEWS ---
   if (view === 'welcome') {
     return (
       <div className="w-full min-h-screen bg-slate-900 flex flex-col justify-end md:justify-center pb-12 md:pb-20 px-6 md:px-12 relative overflow-hidden">
@@ -406,15 +419,15 @@ function App() {
         {/* 🚨 ZOMATO BOTTOM SHEET 🚨 */}
         {selectedDish && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSelectedRecs([]); }}></div>
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); }}></div>
             
-            <div className="relative bg-white w-full md:w-[500px] h-[85vh] md:h-auto md:max-h-[90vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
+            <div className="relative bg-white w-full md:w-[500px] h-[85vh] md:h-auto md:max-h-[95vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
               
-              <button onClick={() => { setSelectedDish(null); setSelectedRecs([]); }} className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full backdrop-blur-md">
+              <button onClick={() => { setSelectedDish(null); setSheetRecs({}); }} className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full backdrop-blur-md">
                 <X size={20} />
               </button>
 
-              <div className="overflow-y-auto custom-scrollbar flex-1 pb-24">
+              <div className="overflow-y-auto custom-scrollbar flex-1 pb-[140px] md:pb-[160px]">
                 <div className="w-full h-56 md:h-64 bg-slate-100 relative">
                   <img src={selectedDish.image_url || `https://source.unsplash.com/600x400/?food,${selectedDish.name}`} className="w-full h-full object-cover" />
                 </div>
@@ -426,6 +439,7 @@ function App() {
                   </div>
                   <p className="text-xs md:text-sm text-slate-500 mb-6">{selectedDish.description}</p>
 
+                  {/* VARIANTS SELECTION (WITH FIXED RADIO BUTTON) */}
                   {selectedDish.variants && selectedDish.variants.length > 0 && (
                     <div className="mb-6 md:mb-8">
                       <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Quantity <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Select Any 1</span></h3>
@@ -435,8 +449,9 @@ function App() {
                             <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
                             <div className="flex items-center gap-3">
                               <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
-                              <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-2 flex items-center justify-center ${selectedVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
-                                {selectedVariant?.name === variant.name && <div className="w-2 h-2 md:w-2.5 md:h-2.5 bg-orange-500 rounded-full"></div>}
+                              {/* 🚨 FIX: shrink-0 added here to prevent oval shapes */}
+                              <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${selectedVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
+                                {selectedVariant?.name === variant.name && <div className="w-2 h-2 md:w-2.5 md:h-2.5 bg-orange-500 rounded-full shrink-0"></div>}
                               </div>
                             </div>
                             <input type="radio" name="variant" className="hidden" checked={selectedVariant?.name === variant.name} onChange={() => setSelectedVariant(variant)} />
@@ -456,52 +471,62 @@ function App() {
                     />
                   </div>
 
-                  {/* 🚨 UPDATED: INLINE VARIANT SELECTION FOR RECOMMENDATIONS */}
+                  {/* 🚨 UPDATED PERFECT PAIRINGS LOGIC WITH INLINE QUANTITY FOR VARIANTS */}
                   {getSmartRecs(selectedDish).length > 0 && (
                     <div>
                       <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
                       <div className="flex overflow-x-auto gap-3 md:gap-4 pb-4 no-scrollbar">
                         {getSmartRecs(selectedDish).map(rec => {
-                          const isSelected = selectedRecs.some(r => r.id === rec.id);
-                          const recVar = selectedRecVariants[rec.id];
-
+                          const hasVariants = rec.variants && rec.variants.length > 0;
+                          
                           return (
                             <div 
                               key={rec.id} 
-                              className={`min-w-[140px] md:min-w-[160px] bg-white border-2 rounded-2xl p-2 md:p-3 shadow-sm shrink-0 transition-all flex flex-col ${isSelected ? 'border-orange-500 bg-orange-50/20' : 'border-slate-100'}`}
+                              className="min-w-[160px] md:min-w-[180px] bg-white border-2 border-slate-100 rounded-2xl p-2 md:p-3 shadow-sm shrink-0 flex flex-col"
                             >
-                              <div className="relative cursor-pointer" onClick={() => toggleRec(rec)}>
-                                <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
-                                <div className={`absolute top-1 right-1 p-1 rounded-md ${isSelected ? 'bg-orange-500 text-white' : 'bg-white text-slate-300 shadow-sm'}`}>
-                                  {isSelected ? <CheckCircle2 size={14}/> : <Plus size={14}/>}
-                                </div>
-                              </div>
+                              <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
+                              <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-2">{rec.name}</p>
                               
-                              <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-1 cursor-pointer" onClick={() => toggleRec(rec)}>{rec.name}</p>
-                              
-                              {/* Show radio buttons if recommended item has variants AND is selected */}
-                              {isSelected && rec.variants && rec.variants.length > 0 ? (
-                                <div className="mt-1 mb-2 flex flex-col gap-1.5">
-                                  {rec.variants.map((v, i) => (
-                                    <label key={i} className="flex items-center justify-between text-[9px] md:text-[10px] cursor-pointer">
-                                      <span className="text-slate-600 font-bold">{v.name}</span>
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="text-slate-900 font-black">₹{v.price}</span>
-                                        <input 
-                                          type="radio" 
-                                          name={`rec-var-${rec.id}`} 
-                                          className="accent-orange-500 w-3 h-3" 
-                                          checked={recVar?.name === v.name} 
-                                          onChange={() => setSelectedRecVariants(prev => ({...prev, [rec.id]: v}))} 
-                                        />
+                              {/* If recommendation has variants (Half/Full) */}
+                              {hasVariants ? (
+                                <div className="mt-auto flex flex-col gap-1.5 w-full">
+                                  {rec.variants.map((v, i) => {
+                                    const qty = sheetRecs[`${rec.id}-${v.name}`]?.qty || 0;
+                                    return (
+                                      <div key={i} className="flex items-center justify-between text-[9px] md:text-[10px] bg-slate-50 rounded-lg p-1 border border-slate-100">
+                                        <span className="text-slate-700 font-bold pl-1">{v.name} - ₹{v.price}</span>
+                                        {qty > 0 ? (
+                                          <div className="flex items-center gap-1.5 bg-orange-50 text-orange-600 rounded px-1 border border-orange-200">
+                                             <button onClick={() => updateSheetRecQty(rec, v, -1)} className="font-black px-1.5">-</button>
+                                             <span className="font-black">{qty}</span>
+                                             <button onClick={() => updateSheetRecQty(rec, v, 1)} className="font-black px-1.5">+</button>
+                                          </div>
+                                        ) : (
+                                          <button onClick={() => updateSheetRecQty(rec, v, 1)} className="bg-white text-orange-600 px-2 py-0.5 rounded border border-orange-200 font-bold shadow-sm">Add</button>
+                                        )}
                                       </div>
-                                    </label>
-                                  ))}
+                                    )
+                                  })}
                                 </div>
                               ) : (
-                                <div className="flex justify-between items-center mt-auto cursor-pointer" onClick={() => toggleRec(rec)}>
-                                  <span className="font-black text-slate-900 text-xs">₹{rec.price}</span>
-                                </div>
+                                /* If recommendation is a simple item without variants */
+                                (() => {
+                                  const qty = sheetRecs[`${rec.id}-regular`]?.qty || 0;
+                                  return (
+                                    <div className="flex justify-between items-center mt-auto bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                      <span className="font-black text-slate-900 text-[10px] pl-1">₹{rec.price}</span>
+                                      {qty > 0 ? (
+                                        <div className="flex items-center gap-2 bg-orange-50 text-orange-600 rounded px-1 border border-orange-200">
+                                           <button onClick={() => updateSheetRecQty(rec, null, -1)} className="font-black px-1.5">-</button>
+                                           <span className="font-black text-[10px]">{qty}</span>
+                                           <button onClick={() => updateSheetRecQty(rec, null, 1)} className="font-black px-1.5">+</button>
+                                        </div>
+                                      ) : (
+                                        <button onClick={() => updateSheetRecQty(rec, null, 1)} className="bg-white text-orange-600 px-3 py-0.5 rounded border border-orange-200 font-bold shadow-sm text-[10px]">Add</button>
+                                      )}
+                                    </div>
+                                  )
+                                })()
                               )}
                             </div>
                           );
@@ -512,38 +537,44 @@ function App() {
                 </div>
               </div>
 
-              {/* DYNAMIC STICKY BUTTON */}
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+              {/* 🚨 DYNAMIC STICKY BUTTON WITH MAIN DISH QUANTITY */}
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-15px_30px_rgba(0,0,0,0.08)]">
+                
+                {/* Main Dish Quantity Selector */}
+                <div className="flex items-center justify-between mb-3 px-2">
+                  <span className="font-bold text-slate-800 text-xs md:text-sm">Main Item Quantity</span>
+                  <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1">
+                    <button onClick={() => setMainDishQty(Math.max(1, mainDishQty - 1))} className="font-black text-slate-600 text-lg px-2 hover:text-orange-500">-</button>
+                    <span className="text-sm font-black text-slate-800">{mainDishQty}</span>
+                    <button onClick={() => setMainDishQty(mainDishQty + 1)} className="font-black text-slate-600 text-lg px-2 hover:text-orange-500">+</button>
+                  </div>
+                </div>
+
                 <button 
                   onClick={() => {
-                    // Main dish check
                     if (selectedDish.variants?.length > 0 && !selectedVariant) {
                       return alert("Please select Quantity (Half/Full) for the main dish!");
                     }
-                    // Recommendations checks (ensure variants are selected)
-                    for (let rec of selectedRecs) {
-                      if (rec.variants?.length > 0 && !selectedRecVariants[rec.id]) {
-                         return alert(`Please select Half/Full for ${rec.name}`);
-                      }
-                    }
-
-                    // Proceed adding
-                    addToCart(selectedDish, selectedVariant, cookingRequest, false);
-                    selectedRecs.forEach(rec => {
-                      addToCart(rec, selectedRecVariants[rec.id] || null, "", false);
+                    
+                    // Add main dish with its quantity
+                    addToCart(selectedDish, selectedVariant, cookingRequest, false, mainDishQty);
+                    
+                    // Add all recommendations with their respective quantities
+                    Object.values(sheetRecs).forEach(recItem => {
+                      addToCart(recItem.dish, recItem.variant, "", false, recItem.qty);
                     });
 
                     // Close sheet
                     setSelectedDish(null);
                     setSelectedVariant(null);
                     setCookingRequest('');
-                    setSelectedRecs([]);
-                    setSelectedRecVariants({});
+                    setMainDishQty(1);
+                    setSheetRecs({});
                   }}
-                  className="w-full bg-orange-500 text-white py-3.5 md:py-4 rounded-xl md:rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 transition-all"
+                  disabled={selectedDish.variants?.length > 0 && !selectedVariant}
+                  className="w-full bg-orange-500 disabled:bg-slate-300 text-white py-3.5 md:py-4 rounded-xl md:rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 transition-all"
                 >
-                  Add {1 + selectedRecs.length > 1 ? `${1 + selectedRecs.length} items` : 'item'} • ₹
-                  {(selectedVariant ? selectedVariant.price : selectedDish.price) + selectedRecs.reduce((sum, r) => sum + (selectedRecVariants[r.id] ? selectedRecVariants[r.id].price : r.price), 0)}
+                  Add {getSheetTotals().items > 1 ? `${getSheetTotals().items} items` : 'item'} • ₹{getSheetTotals().price}
                 </button>
               </div>
             </div>
@@ -569,8 +600,9 @@ function App() {
                             <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
                             <div className="flex items-center gap-3">
                               <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
-                              <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-2 flex items-center justify-center ${editCartVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
-                                {editCartVariant?.name === variant.name && <div className="w-2 h-2 md:w-2.5 md:h-2.5 bg-orange-500 rounded-full"></div>}
+                              {/* Circle fix applied here too */}
+                              <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${editCartVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
+                                {editCartVariant?.name === variant.name && <div className="w-2 h-2 md:w-2.5 md:h-2.5 bg-orange-500 rounded-full shrink-0"></div>}
                               </div>
                             </div>
                             <input type="radio" name="edit-variant" className="hidden" checked={editCartVariant?.name === variant.name} onChange={() => setEditCartVariant(variant)} />
@@ -600,7 +632,6 @@ function App() {
     )
   }
 
-  // --- CHECKOUT VIEW ---
   if (view === 'checkout') {
     if (cart.length === 0) {
       return (
@@ -642,8 +673,6 @@ function App() {
                  <div className="flex justify-between items-end mt-2">
                     <div className="flex-1 pr-4 flex flex-col items-start gap-2">
                       {item.cookingRequest && <p className="text-[11px] text-orange-600 bg-orange-50 p-2 rounded-lg italic inline-block font-medium">" {item.cookingRequest} "</p>}
-                      
-                      {/* 🚨 CUSTOMIZE BUTTON ADDED */}
                       <button onClick={() => openEditCartItem(item)} className="text-[10px] font-black text-orange-500 uppercase tracking-widest hover:underline flex items-center gap-1 bg-orange-50 px-3 py-1.5 rounded-md">
                         <Edit3 size={12} /> Customize
                       </button>
@@ -658,7 +687,6 @@ function App() {
              ))}
           </div>
 
-          {/* 🚨 ADD MORE ITEMS BUTTON */}
           <button onClick={() => setView('menu')} className="w-full bg-orange-50/50 text-orange-600 border-2 border-orange-200 border-dashed py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-orange-100 transition-all mb-8 shadow-sm">
              <Plus size={16} /> Add More Items
           </button>
@@ -693,7 +721,6 @@ function App() {
           </button>
         </div>
         
-        {/* Render Edit Cart Modal globally within the checkout view too */}
         {editingCartItem && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingCartItem(null)}></div>
@@ -712,8 +739,8 @@ function App() {
                             <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
                             <div className="flex items-center gap-3">
                               <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
-                              <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-2 flex items-center justify-center ${editCartVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
-                                {editCartVariant?.name === variant.name && <div className="w-2 h-2 md:w-2.5 md:h-2.5 bg-orange-500 rounded-full"></div>}
+                              <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${editCartVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
+                                {editCartVariant?.name === variant.name && <div className="w-2 h-2 md:w-2.5 md:h-2.5 bg-orange-500 rounded-full shrink-0"></div>}
                               </div>
                             </div>
                             <input type="radio" name="edit-variant" className="hidden" checked={editCartVariant?.name === variant.name} onChange={() => setEditCartVariant(variant)} />
