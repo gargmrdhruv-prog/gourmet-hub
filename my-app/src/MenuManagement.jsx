@@ -220,15 +220,18 @@ const MenuManagement = () => {
         throw new Error("Please select a valid category or type a new one.");
       }
 
+      // 🚨 FIX 3: Forcefully convert price to a positive number before sending to Supabase
+      const safePrice = Math.max(0, parseFloat(newDish.price) || 0);
+
       const dishData = {
         name: newDish.name,
-        price: parseFloat(newDish.price),
+        price: safePrice, // 👈 Using the safe, positive price here
         subcategory_id: finalCategoryId,
         description: newDish.description,
         image_url: imageUrl,
         paired_items: newDish.paired_items,
         is_available: newDish.is_available,
-        restaurant_id: admin.id // 🚨 FIX 3: Nayi dish create/update karte waqt 'restaurant_id'
+        restaurant_id: admin.id // 🚨 FIX 4: Nayi dish create/update karte waqt 'restaurant_id'
       };
 
       if (editingId) {
@@ -250,7 +253,6 @@ const MenuManagement = () => {
       setActionLoading(false);
     }
   };
-
   return (
     <AdminLayout>
       {/* HEADER SECTION */}
