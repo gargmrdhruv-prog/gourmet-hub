@@ -20,14 +20,13 @@ function App() {
   const [tableNumber, setTableNumber] = useState('1'); 
   const [orderId, setOrderId] = useState('');
   
-  // 🚨 ZOMATO BOTTOM SHEET STATES (UPGRADED)
+  // ZOMATO BOTTOM SHEET STATES
   const [selectedDish, setSelectedDish] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [cookingRequest, setCookingRequest] = useState('');
   
-  // Naye states Quantity aur Multi-Variant Recommendations ke liye
   const [mainDishQty, setMainDishQty] = useState(1); 
-  const [sheetRecs, setSheetRecs] = useState({}); // Store karega: {'dishId-Half': {dish, variant, qty: 1}, ...}
+  const [sheetRecs, setSheetRecs] = useState({}); 
 
   // CUSTOMIZE CART ITEM STATES
   const [editingCartItem, setEditingCartItem] = useState(null);
@@ -121,7 +120,6 @@ function App() {
     }
   }, [selectedCategory, allDishes]);
 
-  // 🚨 Add to Cart updated to support Direct Quantity
   const addToCart = (dish, variant = null, request = "", closeSheet = true, qtyToAdd = 1) => {
     if (qtyToAdd <= 0) return;
     const actualPrice = variant ? variant.price : dish.price;
@@ -197,7 +195,6 @@ function App() {
     }
   };
 
-  // 🚨 NAYA FUNCTION: Handle quantities for recommended items inline
   const updateSheetRecQty = (dish, variant, change) => {
     const key = variant ? `${dish.id}-${variant.name}` : `${dish.id}-regular`;
     setSheetRecs(prev => {
@@ -216,7 +213,6 @@ function App() {
     });
   };
 
-  // 🚨 Calculate totals inside the bottom sheet
   const getSheetTotals = () => {
     if (!selectedDish) return { items: 0, price: 0 };
     const mainPrice = (selectedVariant ? selectedVariant.price : selectedDish.price) * mainDishQty;
@@ -368,11 +364,12 @@ function App() {
                         <h3 className="font-black text-slate-800 text-base md:text-lg leading-tight cursor-pointer" onClick={() => openDishSheet(dish)}>{dish.name}</h3>
                       </div>
 
+                      {/* 🚨 FOMO SOCIAL PROOF UPDATED 🚨 */}
                       <div className="flex items-center gap-1.5 mb-3 pl-5 md:pl-6">
                         <div className="flex items-center gap-1 bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-[10px] font-black">
                           <Star size={10} className="fill-green-700" /> {dish.rating || 4.5}
                         </div>
-                        <span className="text-[9px] md:text-[10px] font-bold text-slate-400">{dish.order_count || 120}+ orders</span>
+                        <span className="text-[9px] md:text-[10px] font-bold text-slate-400">{dish.order_count || 120}+ orders this month</span>
                       </div>
 
                       <div className="flex items-center justify-between mt-auto pl-5 md:pl-6">
@@ -416,7 +413,6 @@ function App() {
           </div>
         )}
 
-        {/* 🚨 ZOMATO BOTTOM SHEET 🚨 */}
         {selectedDish && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); }}></div>
@@ -439,7 +435,6 @@ function App() {
                   </div>
                   <p className="text-xs md:text-sm text-slate-500 mb-6">{selectedDish.description}</p>
 
-                  {/* VARIANTS SELECTION (WITH FIXED RADIO BUTTON) */}
                   {selectedDish.variants && selectedDish.variants.length > 0 && (
                     <div className="mb-6 md:mb-8">
                       <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Quantity <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Select Any 1</span></h3>
@@ -449,7 +444,6 @@ function App() {
                             <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
                             <div className="flex items-center gap-3">
                               <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
-                              {/* 🚨 FIX: shrink-0 added here to prevent oval shapes */}
                               <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${selectedVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
                                 {selectedVariant?.name === variant.name && <div className="w-2 h-2 md:w-2.5 md:h-2.5 bg-orange-500 rounded-full shrink-0"></div>}
                               </div>
@@ -471,7 +465,6 @@ function App() {
                     />
                   </div>
 
-                  {/* 🚨 UPDATED PERFECT PAIRINGS LOGIC WITH INLINE QUANTITY FOR VARIANTS */}
                   {getSmartRecs(selectedDish).length > 0 && (
                     <div>
                       <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
@@ -487,7 +480,6 @@ function App() {
                               <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
                               <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-2">{rec.name}</p>
                               
-                              {/* If recommendation has variants (Half/Full) */}
                               {hasVariants ? (
                                 <div className="mt-auto flex flex-col gap-1.5 w-full">
                                   {rec.variants.map((v, i) => {
@@ -509,7 +501,6 @@ function App() {
                                   })}
                                 </div>
                               ) : (
-                                /* If recommendation is a simple item without variants */
                                 (() => {
                                   const qty = sheetRecs[`${rec.id}-regular`]?.qty || 0;
                                   return (
@@ -537,10 +528,7 @@ function App() {
                 </div>
               </div>
 
-              {/* 🚨 DYNAMIC STICKY BUTTON WITH MAIN DISH QUANTITY */}
               <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-15px_30px_rgba(0,0,0,0.08)]">
-                
-                {/* Main Dish Quantity Selector */}
                 <div className="flex items-center justify-between mb-3 px-2">
                   <span className="font-bold text-slate-800 text-xs md:text-sm">Main Item Quantity</span>
                   <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1">
@@ -556,15 +544,12 @@ function App() {
                       return alert("Please select Quantity (Half/Full) for the main dish!");
                     }
                     
-                    // Add main dish with its quantity
                     addToCart(selectedDish, selectedVariant, cookingRequest, false, mainDishQty);
                     
-                    // Add all recommendations with their respective quantities
                     Object.values(sheetRecs).forEach(recItem => {
                       addToCart(recItem.dish, recItem.variant, "", false, recItem.qty);
                     });
 
-                    // Close sheet
                     setSelectedDish(null);
                     setSelectedVariant(null);
                     setCookingRequest('');
@@ -581,7 +566,6 @@ function App() {
           </div>
         )}
 
-        {/* 🚨 EDIT CART ITEM MODAL (CUSTOMIZE IN CHECKOUT) 🚨 */}
         {editingCartItem && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingCartItem(null)}></div>
@@ -600,7 +584,6 @@ function App() {
                             <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
                             <div className="flex items-center gap-3">
                               <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
-                              {/* Circle fix applied here too */}
                               <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${editCartVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
                                 {editCartVariant?.name === variant.name && <div className="w-2 h-2 md:w-2.5 md:h-2.5 bg-orange-500 rounded-full shrink-0"></div>}
                               </div>
