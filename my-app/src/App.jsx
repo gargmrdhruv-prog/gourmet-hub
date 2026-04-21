@@ -10,7 +10,7 @@ import SuperAdminLogin from './SuperAdminLogin';
 function App() {
   const [user, setUser] = useState(null);
   
-  // 🚨 PERSISTENCE: Recovering Session from LocalStorage
+  // PERSISTENCE: Recovering Session from LocalStorage
   const [view, setView] = useState(() => localStorage.getItem('gourmet_view') || 'welcome');
   const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('gourmet_cart')) || []);
   const [placedOrderItems, setPlacedOrderItems] = useState(() => JSON.parse(localStorage.getItem('gourmet_placed_items')) || []);
@@ -42,7 +42,7 @@ function App() {
 
   const currentURL = window.location.href; 
 
-  // 🚨 SYNC STATES TO LOCAL STORAGE
+  // SYNC STATES TO LOCAL STORAGE
   useEffect(() => { localStorage.setItem('gourmet_cart', JSON.stringify(cart)); }, [cart]);
   useEffect(() => { localStorage.setItem('gourmet_view', view); }, [view]);
   useEffect(() => { localStorage.setItem('gourmet_table', tableNumber); }, [tableNumber]);
@@ -54,15 +54,20 @@ function App() {
       const savedUser = localStorage.getItem('admin_user');
       let activeRestId = 1;
 
-      if (savedUser) {
+      // 🚨 FIX 1: Prioritize URL param over LocalStorage for Menu View
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlRestId = urlParams.get('rest');
+
+      if (urlRestId) {
+        activeRestId = urlRestId;
+      } else if (savedUser) {
         const currentUser = JSON.parse(savedUser);
-        setUser(currentUser);
         activeRestId = currentUser.id;
-      } else {
-        setUser(null);
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlRestId = urlParams.get('rest');
-        if (urlRestId) activeRestId = urlRestId;
+      }
+
+      // Restore admin session if it exists
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
       }
       
       await fetchInitialData(activeRestId);
@@ -98,7 +103,6 @@ function App() {
           name: settingsData.restaurant_name || 'Gourmet Menu',
           logo: settingsData.logo_url || '',
           tagline: settingsData.tagline || '',
-          // Default bg if admin hasn't set one
           welcome_bg_url: settingsData.welcome_bg_url || 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200', 
           taxes: settingsData.taxes || [] 
         });
@@ -243,27 +247,28 @@ function App() {
   const totalTaxAmount = taxBreakdown.reduce((sum, tax) => sum + tax.amount, 0);
   const grandTotal = Math.round(subtotal + totalTaxAmount); 
 
-  // 🚨 CALL WAITER (Submit order, clear cart, show waiter screen)
+  // CALL WAITER 
   const handleCallWaiter = async () => {
     if (loading) return;
     if (cart.length === 0) return alert("Cart is empty!");
-    if (!tableNumber || tableNumber.trim() === "") return alert("Please enter a table number so the waiter can find you!");
 
     setLoading(true);
     try {
       const activeRestId = user?.id || new URLSearchParams(window.location.search).get('rest') || 1;
+      // 🚨 FIX 2: Default to Takeaway / Parcel if table is empty
+      const finalTableStatus = tableNumber && tableNumber.trim() !== "" ? tableNumber : "Takeaway / Parcel";
 
       const { data, error } = await supabase
         .from('orders')
         .insert([{ 
-          restaurant_id: activeRestId, table_number: tableNumber, total_bill: grandTotal, status: 'pending', items: cart 
+          restaurant_id: activeRestId, table_number: finalTableStatus, total_bill: grandTotal, status: 'pending', items: cart 
         }]).select();
       
       if (error) throw error;
       if (data && data.length > 0) {
         setOrderId(data[0].id.toString().slice(0, 4));
-        setPlacedOrderItems([...cart]); // Save items for waiter view
-        setCart([]); // Clear cart
+        setPlacedOrderItems([...cart]); 
+        setCart([]); 
         setView('waiter_screen');
       }
     } catch (error) {
@@ -273,7 +278,6 @@ function App() {
     }
   };
 
-  // Allows customer to start fresh if they want to order more
   const clearSessionAndStartNew = () => {
     localStorage.removeItem('gourmet_cart');
     localStorage.removeItem('gourmet_placed_items');
@@ -312,7 +316,6 @@ function App() {
   if (view === 'welcome') {
     return (
       <div className="w-full min-h-screen bg-slate-900 flex flex-col justify-end md:justify-center pb-12 md:pb-20 px-6 md:px-12 relative overflow-hidden">
-        {/* Dynamic Background from Admin Settings */}
         {storeSettings.welcome_bg_url && (
           <img src={storeSettings.welcome_bg_url} className="absolute inset-0 w-full h-full object-cover opacity-40" alt="bg" />
         )}
@@ -336,14 +339,23 @@ function App() {
     return (
       <div className="w-full min-h-screen bg-slate-50 pb-32">
         <header className="bg-white shadow-sm sticky top-0 z-40 border-b border-slate-100">
-          <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center gap-3 md:gap-5">
-            <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm flex-shrink-0">
-              {storeSettings.logo ? <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-cover" /> : <span className="font-black text-xl text-orange-500 italic">{storeSettings.name.charAt(0)}</span>}
+          <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 md:gap-5 overflow-hidden">
+              <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm flex-shrink-0">
+                {storeSettings.logo ? <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-cover" /> : <span className="font-black text-xl text-orange-500 italic">{storeSettings.name.charAt(0)}</span>}
+              </div>
+              <div className="overflow-hidden">
+                <h1 className="text-xl md:text-2xl font-black italic text-slate-800 leading-tight truncate">{storeSettings.name}</h1>
+                {storeSettings.tagline && <p className="text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5 truncate">{storeSettings.tagline}</p>}
+              </div>
             </div>
-            <div className="overflow-hidden">
-              <h1 className="text-xl md:text-2xl font-black italic text-slate-800 leading-tight truncate">{storeSettings.name}</h1>
-              {storeSettings.tagline && <p className="text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5 truncate">{storeSettings.tagline}</p>}
-            </div>
+            
+            {/* 🚨 FIX 3: Active Order Button for Customer */}
+            {placedOrderItems.length > 0 && (
+              <button onClick={() => setView('waiter_screen')} className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-2 md:px-4 md:py-2.5 rounded-xl font-black text-[10px] md:text-xs uppercase flex items-center gap-1.5 border border-blue-200 transition-all shrink-0 shadow-sm animate-in zoom-in">
+                <BellRing size={14}/> <span className="hidden sm:inline">Active Order</span>
+              </button>
+            )}
           </div>
         </header>
 
@@ -400,7 +412,6 @@ function App() {
                         <h3 className="font-black text-slate-800 text-base md:text-lg leading-tight cursor-pointer" onClick={() => openDishSheet(dish)}>{dish.name}</h3>
                       </div>
 
-                      {/* Optional Rating/Order Count */}
                       {(dish.rating || dish.order_count) ? (
                         <div className="flex items-center gap-1.5 mb-3 pl-5 md:pl-6">
                           {dish.rating && (
@@ -610,6 +621,53 @@ function App() {
             </div>
           </div>
         )}
+
+        {/* Edit Cart Modal */}
+        {editingCartItem && (
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingCartItem(null)}></div>
+            <div className="relative bg-white w-full md:w-[500px] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl p-6 md:p-8">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h2 className="text-xl font-black text-slate-900 italic">Customize {editingCartItem.name}</h2>
+                    <button onClick={() => setEditingCartItem(null)} className="text-slate-400 hover:text-slate-900 bg-slate-100 p-2 rounded-full"><X size={18} /></button>
+                </div>
+
+                {editingCartItem.variants && editingCartItem.variants.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="font-bold text-slate-800 mb-3 text-sm">Quantity</h3>
+                      <div className="space-y-2">
+                        {editingCartItem.variants.map((variant, idx) => (
+                          <label key={idx} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${editCartVariant?.name === variant.name ? 'border-orange-500 bg-orange-50/30' : 'border-slate-100 bg-white hover:border-orange-200'}`}>
+                            <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
+                              <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${editCartVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
+                                {editCartVariant?.name === variant.name && <div className="w-2 h-2 md:w-2.5 md:h-2.5 bg-orange-500 rounded-full shrink-0"></div>}
+                              </div>
+                            </div>
+                            <input type="radio" name="edit-variant" className="hidden" checked={editCartVariant?.name === variant.name} onChange={() => setEditCartVariant(variant)} />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                )}
+
+                <div className="mb-8">
+                    <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-sm flex items-center gap-2"><MessageSquare size={14}/> Cooking Request</h3>
+                    <textarea 
+                      placeholder="e.g. Don't make it too spicy" 
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 md:p-4 text-sm font-medium text-slate-700 outline-none focus:border-orange-500 focus:bg-white transition-all resize-none h-20"
+                      value={editCartRequest}
+                      onChange={(e) => setEditCartRequest(e.target.value)}
+                    />
+                </div>
+
+                <button onClick={handleUpdateCartItem} className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 transition-all">
+                    Update Item
+                </button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -693,17 +751,16 @@ function App() {
             </div>
           </div>
 
+          {/* 🚨 FIX 2: Table number is now completely optional */}
           <div className="bg-white p-6 rounded-[2rem] shadow-sm mb-8 border border-slate-100">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block text-center mb-4">Table Number</label>
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block text-center mb-4">Table Number (Optional)</label>
             <input type="number" min="1" placeholder="Eg: 5" className="w-full text-center text-4xl font-black bg-slate-50 p-4 rounded-2xl text-slate-900 border-none outline-none mb-3 focus:ring-2 focus:ring-orange-500 transition-all" value={tableNumber} onChange={e => setTableNumber(e.target.value)} />
-            <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">Required for waiter to serve you</p>
+            <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">Leave blank for Takeaway / Parcel</p>
           </div>
 
-          {/* 🚨 CALL WAITER BUTTON */}
-          <button onClick={handleCallWaiter} disabled={loading || !tableNumber} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-sm shadow-xl uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-black active:scale-95 transition-all disabled:opacity-50">
+          <button onClick={handleCallWaiter} disabled={loading} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-sm shadow-xl uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-black active:scale-95 transition-all disabled:opacity-50">
             {loading ? <Loader2 className="animate-spin" size={24} /> : <><BellRing size={20}/> Call Waiter To Confirm</>}
           </button>
-          {!tableNumber && <p className="text-[10px] text-red-500 text-center font-bold mt-2 uppercase tracking-widest">Please enter Table Number first</p>}
         </div>
         
         {/* Cart Item Edit Modal */}
@@ -756,7 +813,7 @@ function App() {
     )
   }
 
-  // 🚨 4. NEW VIEW: WAITER CONFIRMATION SCREEN (No Prices shown)
+  // 4. WAITER CONFIRMATION SCREEN (No Prices shown)
   if (view === 'waiter_screen') {
     return (
       <div className="w-full min-h-screen bg-slate-900 p-4 md:p-8 flex flex-col items-center justify-center relative overflow-hidden">
@@ -768,7 +825,7 @@ function App() {
           </div>
           <h2 className="text-3xl font-serif font-black text-slate-900 mb-2 italic">Show to Waiter</h2>
           <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-6">
-            Table {tableNumber} • Order #{orderId}
+            {tableNumber && tableNumber.trim() !== "" ? `Table ${tableNumber}` : 'Takeaway / Parcel'} • Order #{orderId}
           </p>
 
           <div className="bg-slate-50 rounded-2xl p-5 mb-8 text-left max-h-[40vh] overflow-y-auto border border-slate-100 shadow-inner custom-scrollbar">
