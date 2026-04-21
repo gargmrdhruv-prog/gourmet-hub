@@ -16,6 +16,7 @@ function App() {
   const [placedOrderItems, setPlacedOrderItems] = useState(() => JSON.parse(localStorage.getItem('gourmet_placed_items')) || []);
   const [tableNumber, setTableNumber] = useState(() => localStorage.getItem('gourmet_table') || ''); 
   const [orderId, setOrderId] = useState(() => localStorage.getItem('gourmet_order_id') || '');
+  const [restaurantId, setRestaurantId] = useState(() => localStorage.getItem('gourmet_rest_id') || '1');
   
   const [dishes, setDishes] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -48,13 +49,13 @@ function App() {
   useEffect(() => { localStorage.setItem('gourmet_table', tableNumber); }, [tableNumber]);
   useEffect(() => { localStorage.setItem('gourmet_placed_items', JSON.stringify(placedOrderItems)); }, [placedOrderItems]);
   useEffect(() => { localStorage.setItem('gourmet_order_id', orderId); }, [orderId]);
+  useEffect(() => { localStorage.setItem('gourmet_rest_id', restaurantId); }, [restaurantId]);
 
   useEffect(() => {
     const init = async () => {
       const savedUser = localStorage.getItem('admin_user');
-      let activeRestId = 1;
+      let activeRestId = '1';
 
-      // 🚨 FIX 1: Prioritize URL param over LocalStorage for Menu View
       const urlParams = new URLSearchParams(window.location.search);
       const urlRestId = urlParams.get('rest');
 
@@ -63,9 +64,12 @@ function App() {
       } else if (savedUser) {
         const currentUser = JSON.parse(savedUser);
         activeRestId = currentUser.id;
+      } else {
+        activeRestId = localStorage.getItem('gourmet_rest_id') || '1';
       }
 
-      // Restore admin session if it exists
+      setRestaurantId(activeRestId);
+
       if (savedUser) {
         setUser(JSON.parse(savedUser));
       }
@@ -254,20 +258,26 @@ function App() {
 
     setLoading(true);
     try {
-      const activeRestId = user?.id || new URLSearchParams(window.location.search).get('rest') || 1;
-      // 🚨 FIX 2: Default to Takeaway / Parcel if table is empty
       const finalTableStatus = tableNumber && tableNumber.trim() !== "" ? tableNumber : "Takeaway / Parcel";
 
       const { data, error } = await supabase
         .from('orders')
         .insert([{ 
-          restaurant_id: activeRestId, table_number: finalTableStatus, total_bill: grandTotal, status: 'pending', items: cart 
+          restaurant_id: restaurantId, 
+          table_number: finalTableStatus, 
+          total_bill: grandTotal, 
+          status: 'pending', 
+          items: cart 
         }]).select();
       
       if (error) throw error;
       if (data && data.length > 0) {
-        setOrderId(data[0].id.toString().slice(0, 4));
-        setPlacedOrderItems([...cart]); 
+        // Append new order ID if customer is ordering again for the same table
+        const newId = data[0].id.toString().slice(0, 4);
+        setOrderId(prev => prev ? `${prev}, #${newId}` : newId);
+        
+        // Append new items to already placed items
+        setPlacedOrderItems(prev => [...prev, ...cart]); 
         setCart([]); 
         setView('waiter_screen');
       }
@@ -276,16 +286,6 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const clearSessionAndStartNew = () => {
-    localStorage.removeItem('gourmet_cart');
-    localStorage.removeItem('gourmet_placed_items');
-    localStorage.removeItem('gourmet_order_id');
-    setCart([]);
-    setPlacedOrderItems([]);
-    setOrderId('');
-    setView('menu');
   };
 
   if (loading) {
@@ -350,10 +350,10 @@ function App() {
               </div>
             </div>
             
-            {/* 🚨 FIX 3: Active Order Button for Customer */}
+            {/* 🚨 ACTIVE ORDER BUTTON (FIXED FOR ALL SCREENS) */}
             {placedOrderItems.length > 0 && (
               <button onClick={() => setView('waiter_screen')} className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-2 md:px-4 md:py-2.5 rounded-xl font-black text-[10px] md:text-xs uppercase flex items-center gap-1.5 border border-blue-200 transition-all shrink-0 shadow-sm animate-in zoom-in">
-                <BellRing size={14}/> <span className="hidden sm:inline">Active Order</span>
+                <BellRing size={16} className="animate-pulse" /> <span className="hidden sm:inline">Active Order</span>
               </button>
             )}
           </div>
@@ -383,6 +383,9 @@ function App() {
                 const cartItemsForDish = cart.filter(i => i.id === dish.id);
                 const totalQtyInCart = cartItemsForDish.reduce((sum, item) => sum + item.qty, 0);
                 const isNonVeg = dish.tags?.some(t => t.toLowerCase().includes('non-veg'));
+                
+                // 🚨 EXTRACTING EXTRA TAGS FOR VISIBILITY
+                const extraTags = dish.tags?.filter(t => t !== 'Veg 🟢' && t !== 'Non-Veg 🔴' && t !== 'Bestseller ⭐') || [];
 
                 return (
                   <div key={dish.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl transition-all flex flex-col">
@@ -412,8 +415,19 @@ function App() {
                         <h3 className="font-black text-slate-800 text-base md:text-lg leading-tight cursor-pointer" onClick={() => openDishSheet(dish)}>{dish.name}</h3>
                       </div>
 
+                      {/* 🚨 VISIBLE EXTRA TAGS (Chef's Special, Spicy, etc) */}
+                      {extraTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-1.5 mb-2 pl-5 md:pl-6">
+                          {extraTags.map((tag, idx) => (
+                            <span key={idx} className="text-[8px] md:text-[9px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 uppercase tracking-widest">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
                       {(dish.rating || dish.order_count) ? (
-                        <div className="flex items-center gap-1.5 mb-3 pl-5 md:pl-6">
+                        <div className="flex items-center gap-1.5 mb-3 pl-5 md:pl-6 mt-1">
                           {dish.rating && (
                             <div className="flex items-center gap-1 bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-[10px] font-black">
                               <Star size={10} className="fill-green-700" /> {dish.rating}
@@ -489,6 +503,17 @@ function App() {
                      <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
                      <h2 className="text-xl md:text-2xl font-black text-slate-900">{selectedDish.name}</h2>
                   </div>
+
+                  {selectedDish.tags && selectedDish.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {selectedDish.tags.map((tag, idx) => (
+                        <span key={idx} className="text-[9px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest border border-slate-200">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   <p className="text-xs md:text-sm text-slate-500 mb-6">{selectedDish.description}</p>
 
                   {selectedDish.variants && selectedDish.variants.length > 0 && (
@@ -751,7 +776,6 @@ function App() {
             </div>
           </div>
 
-          {/* 🚨 FIX 2: Table number is now completely optional */}
           <div className="bg-white p-6 rounded-[2rem] shadow-sm mb-8 border border-slate-100">
             <label className="text-xs font-black text-slate-400 uppercase tracking-widest block text-center mb-4">Table Number (Optional)</label>
             <input type="number" min="1" placeholder="Eg: 5" className="w-full text-center text-4xl font-black bg-slate-50 p-4 rounded-2xl text-slate-900 border-none outline-none mb-3 focus:ring-2 focus:ring-orange-500 transition-all" value={tableNumber} onChange={e => setTableNumber(e.target.value)} />
@@ -813,7 +837,7 @@ function App() {
     )
   }
 
-  // 4. WAITER CONFIRMATION SCREEN (No Prices shown)
+  // 4. WAITER CONFIRMATION SCREEN
   if (view === 'waiter_screen') {
     return (
       <div className="w-full min-h-screen bg-slate-900 p-4 md:p-8 flex flex-col items-center justify-center relative overflow-hidden">
@@ -825,7 +849,7 @@ function App() {
           </div>
           <h2 className="text-3xl font-serif font-black text-slate-900 mb-2 italic">Show to Waiter</h2>
           <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-6">
-            {tableNumber && tableNumber.trim() !== "" ? `Table ${tableNumber}` : 'Takeaway / Parcel'} • Order #{orderId}
+            {tableNumber && tableNumber.trim() !== "" ? `Table ${tableNumber}` : 'Takeaway / Parcel'} • {orderId}
           </p>
 
           <div className="bg-slate-50 rounded-2xl p-5 mb-8 text-left max-h-[40vh] overflow-y-auto border border-slate-100 shadow-inner custom-scrollbar">
@@ -848,8 +872,13 @@ function App() {
             Your order has been sent to the kitchen display.<br/> Waiter will confirm it shortly.
           </p>
 
-          <button onClick={clearSessionAndStartNew} className="w-full bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all">
-            Order More Items
+          {/* 🚨 FIX 1: Menu button that keeps memory alive */}
+          <button onClick={() => setView('menu')} className="w-full bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all mb-3">
+            Add More Items to Table
+          </button>
+          
+          <button onClick={clearSessionAndStartNew} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-red-500 transition-all">
+            Clear Session & Start Fresh
           </button>
         </div>
       </div>
