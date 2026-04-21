@@ -16,6 +16,7 @@ const MenuManagement = () => {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryText, setNewCategoryText] = useState("");
   
+  // 🚨 FIX: Made rating and order_count empty by default
   const [newDish, setNewDish] = useState({ 
     name: '', price: '', category_id: '', description: '', paired_items: [], is_available: true,
     rating: '', order_count: '', tags: [], has_variants: false, variants: [{ name: 'Half', price: '' }, { name: 'Full', price: '' }]
@@ -97,7 +98,7 @@ const MenuManagement = () => {
       description: dish.description,
       paired_items: dish.paired_items || [],
       is_available: dish.is_available ?? true,
-      rating: dish.rating === null ? '' : dish.rating, 
+      rating: dish.rating === null ? '' : dish.rating, // Handle null values safely
       order_count: dish.order_count === null ? '' : dish.order_count,
       tags: dish.tags || [],
       has_variants: hasVars,
@@ -175,9 +176,9 @@ const MenuManagement = () => {
         }
       }
 
-      // 🚨 FIX: Safety checks added for negative inputs before saving
+      // 🚨 FIX: Allowing null values if inputs are left empty
       const safeRating = newDish.rating === '' ? null : Math.min(5, Math.max(1, parseFloat(newDish.rating)));
-      const safeOrderCount = newDish.order_count === '' ? null : Math.max(0, parseInt(newDish.order_count));
+      const safeOrderCount = newDish.order_count === '' ? null : parseInt(newDish.order_count);
 
       const dishData = {
         name: newDish.name,
@@ -265,6 +266,7 @@ const MenuManagement = () => {
                     <div className="overflow-hidden">
                       <p className="font-black text-slate-800 text-sm md:text-lg mb-0.5 md:mb-1 italic tracking-tight truncate">{dish.name}</p>
                       
+                      {/* Check if rating or order count exists before showing */}
                       {(dish.rating || dish.order_count) && (
                          <p className="text-[9px] md:text-[11px] text-orange-500 font-bold tracking-widest uppercase flex items-center gap-1 mt-1">
                            {dish.rating && <><Star size={10} className="fill-orange-500"/> {dish.rating}</>}
@@ -377,28 +379,15 @@ const MenuManagement = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* 🚨 FIX: Placeholders added, required removed so they can be empty */}
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex gap-4">
                     <div className="flex-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Rating (Optional)</label>
-                      {/* 🚨 PREVENT NEGATIVES IN RATING */}
-                      <input type="number" step="0.1" max="5" min="1" placeholder="e.g. 4.5" className="w-full bg-slate-50 rounded-xl p-3 font-black text-orange-500 outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-slate-300" value={newDish.rating} 
-                        onChange={e => setNewDish({...newDish, rating: e.target.value})} 
-                        onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }} 
-                      />
+                      <input type="number" step="0.1" max="5" min="1" placeholder="e.g. 4.5" className="w-full bg-slate-50 rounded-xl p-3 font-black text-orange-500 outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-slate-300" value={newDish.rating} onChange={e => setNewDish({...newDish, rating: e.target.value})} />
                     </div>
                     <div className="flex-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Fake Orders (Opt)</label>
-                      {/* 🚨 PREVENT NEGATIVES IN FAKE ORDERS */}
-                      <input type="number" min="0" placeholder="e.g. 120" className="w-full bg-slate-50 rounded-xl p-3 font-black text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-slate-300" 
-                        value={newDish.order_count} 
-                        onChange={e => {
-                          const val = e.target.value;
-                          if (val === '' || parseInt(val) >= 0) {
-                            setNewDish({...newDish, order_count: val});
-                          }
-                        }} 
-                        onKeyDown={(e) => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }} 
-                      />
+                      <input type="number" placeholder="e.g. 120" className="w-full bg-slate-50 rounded-xl p-3 font-black text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-slate-300" value={newDish.order_count} onChange={e => setNewDish({...newDish, order_count: e.target.value})} />
                     </div>
                   </div>
 
