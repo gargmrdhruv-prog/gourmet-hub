@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from './AdminLayout';
 import { supabase } from './supabase';
 import { 
-  Plus, Edit2, Trash2, X, Loader2, UploadCloud, Link, Power, CheckCircle2, Star, TrendingUp, Tag
+  Plus, Edit2, Trash2, X, Loader2, UploadCloud, Link, CheckCircle2, Star
 } from 'lucide-react';
 
 const MenuManagement = () => {
@@ -16,10 +16,10 @@ const MenuManagement = () => {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryText, setNewCategoryText] = useState("");
   
-  // 🚨 UPGRADED STATE: Added Zomato-like fields
+  // 🚨 FIX: Made rating and order_count empty by default
   const [newDish, setNewDish] = useState({ 
     name: '', price: '', category_id: '', description: '', paired_items: [], is_available: true,
-    rating: 4.5, order_count: 124, tags: [], has_variants: false, variants: [{ name: 'Half', price: '' }, { name: 'Full', price: '' }]
+    rating: '', order_count: '', tags: [], has_variants: false, variants: [{ name: 'Half', price: '' }, { name: 'Full', price: '' }]
   });
 
   const availableTags = ['Veg 🟢', 'Non-Veg 🔴', 'Bestseller ⭐', 'Spicy 🌶️', "Chef's Special 👨‍🍳", 'Sweet 🍯'];
@@ -78,7 +78,7 @@ const MenuManagement = () => {
   const resetForm = () => {
     setNewDish({ 
       name: '', price: '', category_id: '', description: '', paired_items: [], is_available: true,
-      rating: 4.5, order_count: 124, tags: [], has_variants: false, variants: [{ name: 'Half', price: '' }, { name: 'Full', price: '' }]
+      rating: '', order_count: '', tags: [], has_variants: false, variants: [{ name: 'Half', price: '' }, { name: 'Full', price: '' }]
     });
     setEditingId(null);
     setImageFile(null);
@@ -98,8 +98,8 @@ const MenuManagement = () => {
       description: dish.description,
       paired_items: dish.paired_items || [],
       is_available: dish.is_available ?? true,
-      rating: dish.rating || 4.5,
-      order_count: dish.order_count || 124,
+      rating: dish.rating === null ? '' : dish.rating, // Handle null values safely
+      order_count: dish.order_count === null ? '' : dish.order_count,
       tags: dish.tags || [],
       has_variants: hasVars,
       variants: hasVars ? dish.variants : [{ name: 'Half', price: '' }, { name: 'Full', price: '' }]
@@ -122,7 +122,7 @@ const MenuManagement = () => {
   };
 
   const deleteDish = async (id) => {
-    if (window.confirm("Bhai, are you sure you want to remove this dish from the menu?")) {
+    if (window.confirm("Are you sure you want to remove this dish from the menu?")) {
       const { error } = await supabase.from('dishes').delete().eq('id', id);
       if (error) alert("Error deleting dish");
       else fetchDishes();
@@ -130,15 +130,15 @@ const MenuManagement = () => {
   };
 
   const deleteCategory = async (categoryId, categoryName) => {
-    if (!window.confirm(`Kya aap sach mein "${categoryName}" category ko delete karna chahte hain?`)) return;
+    if (!window.confirm(`Are you sure you want to delete "${categoryName}"?`)) return;
     try {
       const { data: linkedDishes, error: checkError } = await supabase.from('dishes').select('id').eq('subcategory_id', categoryId);
       if (checkError) throw checkError;
-      if (linkedDishes && linkedDishes.length > 0) return alert(`❌ Ise delete nahi kar sakte! Is category mein ${linkedDishes.length} dishes hain.`);
+      if (linkedDishes && linkedDishes.length > 0) return alert(`❌ Cannot delete! There are ${linkedDishes.length} dishes in this category.`);
       const { error: deleteError } = await supabase.from('subcategories').delete().eq('id', categoryId);
       if (deleteError) throw deleteError;
       fetchCategories(); 
-      alert(`✅ "${categoryName}" category delete ho gayi!`);
+      alert(`✅ "${categoryName}" deleted!`);
     } catch (error) {
       alert("Error: " + error.message);
     }
@@ -161,7 +161,6 @@ const MenuManagement = () => {
       }
       if (!finalCategoryId || finalCategoryId === '') throw new Error("Please select a valid category or type a new one.");
 
-      // 🚨 VARIANTS & PRICING LOGIC
       let finalVariants = [];
       let finalPrice = Math.max(0, parseFloat(newDish.price) || 0);
 
@@ -172,14 +171,14 @@ const MenuManagement = () => {
         if (halfPrice > 0) finalVariants.push({ name: 'Half', price: halfPrice });
         if (fullPrice > 0) finalVariants.push({ name: 'Full', price: fullPrice });
 
-        // Base price becomes the lowest variant price (e.g. for showing "Starts at ₹215")
         if (finalVariants.length > 0) {
           finalPrice = Math.min(...finalVariants.map(v => v.price));
         }
       }
 
-      const safeRating = Math.min(5, Math.max(1, parseFloat(newDish.rating) || 4.5));
-      const safeOrderCount = parseInt(newDish.order_count) || 124;
+      // 🚨 FIX: Allowing null values if inputs are left empty
+      const safeRating = newDish.rating === '' ? null : Math.min(5, Math.max(1, parseFloat(newDish.rating)));
+      const safeOrderCount = newDish.order_count === '' ? null : parseInt(newDish.order_count);
 
       const dishData = {
         name: newDish.name,
@@ -266,7 +265,15 @@ const MenuManagement = () => {
                     </div>
                     <div className="overflow-hidden">
                       <p className="font-black text-slate-800 text-sm md:text-lg mb-0.5 md:mb-1 italic tracking-tight truncate">{dish.name}</p>
-                      <p className="text-[9px] md:text-[11px] text-orange-500 font-bold tracking-widest uppercase flex items-center gap-1"><Star size={10} className="fill-orange-500"/> {dish.rating} ({dish.order_count})</p>
+                      
+                      {/* Check if rating or order count exists before showing */}
+                      {(dish.rating || dish.order_count) && (
+                         <p className="text-[9px] md:text-[11px] text-orange-500 font-bold tracking-widest uppercase flex items-center gap-1 mt-1">
+                           {dish.rating && <><Star size={10} className="fill-orange-500"/> {dish.rating}</>}
+                           {dish.rating && dish.order_count && " • "}
+                           {dish.order_count && `${dish.order_count} Orders`}
+                         </p>
+                      )}
                     </div>
                   </td>
                   <td className="p-6 md:p-10">
@@ -306,7 +313,6 @@ const MenuManagement = () => {
         </div>
       </div>
 
-      {/* 🚨 ZOMATO ENHANCED MODAL 🚨 */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xl z-[100] flex items-center justify-center p-4 md:p-6 overflow-y-auto">
           <div className="bg-white w-full max-w-4xl rounded-[2rem] md:rounded-[4rem] p-6 md:p-10 shadow-2xl relative my-8 md:my-auto max-h-[90vh] overflow-y-auto custom-scrollbar border border-white/20">
@@ -318,9 +324,7 @@ const MenuManagement = () => {
             
             <form onSubmit={handleSubmit} className="space-y-6">
               
-              {/* SECTION 1: Basic Info */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Image Upload Area */}
                 <div className="col-span-1 space-y-3">
                   <div className="relative group">
                     <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
@@ -360,11 +364,9 @@ const MenuManagement = () => {
                 </div>
               </div>
 
-              {/* 🚨 SECTION 2: ZOMATO ENHANCEMENTS (VARIANTS, PROOF, TAGS) */}
               <div className="bg-orange-50/30 p-5 md:p-6 rounded-[2rem] border border-orange-100/50 space-y-6">
                 <h3 className="text-xs font-black text-orange-600 uppercase tracking-widest flex items-center gap-2"><Star size={14}/> Marketing & Variants Settings</h3>
                 
-                {/* Tags */}
                 <div>
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-3">Highlight Tags</label>
                   <div className="flex flex-wrap gap-2">
@@ -377,19 +379,18 @@ const MenuManagement = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Social Proof */}
+                  {/* 🚨 FIX: Placeholders added, required removed so they can be empty */}
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex gap-4">
                     <div className="flex-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Rating (Max 5.0)</label>
-                      <input type="number" step="0.1" max="5" min="1" className="w-full bg-slate-50 rounded-xl p-3 font-black text-orange-500 outline-none focus:ring-2 focus:ring-orange-500" value={newDish.rating} onChange={e => setNewDish({...newDish, rating: e.target.value})} />
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Rating (Optional)</label>
+                      <input type="number" step="0.1" max="5" min="1" placeholder="e.g. 4.5" className="w-full bg-slate-50 rounded-xl p-3 font-black text-orange-500 outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-slate-300" value={newDish.rating} onChange={e => setNewDish({...newDish, rating: e.target.value})} />
                     </div>
                     <div className="flex-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Fake Orders</label>
-                      <input type="number" className="w-full bg-slate-50 rounded-xl p-3 font-black text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" value={newDish.order_count} onChange={e => setNewDish({...newDish, order_count: e.target.value})} />
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Fake Orders (Opt)</label>
+                      <input type="number" placeholder="e.g. 120" className="w-full bg-slate-50 rounded-xl p-3 font-black text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-slate-300" value={newDish.order_count} onChange={e => setNewDish({...newDish, order_count: e.target.value})} />
                     </div>
                   </div>
 
-                  {/* Pricing / Variants */}
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                     <div className="flex items-center gap-2 mb-3">
                       <input type="checkbox" id="variantsToggle" checked={newDish.has_variants} onChange={e => setNewDish({...newDish, has_variants: e.target.checked})} className="w-4 h-4 accent-orange-500 cursor-pointer" />
@@ -417,7 +418,6 @@ const MenuManagement = () => {
                 </div>
               </div>
 
-              {/* PAIRED ITEMS SELECTOR */}
               <div className="bg-slate-50 p-4 md:p-6 rounded-2xl md:rounded-[2rem] border border-slate-100">
                 <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 mb-4 italic">
                   <Link size={14} className="text-orange-500" /> Curated Pairings
@@ -441,11 +441,5 @@ const MenuManagement = () => {
     </AdminLayout>
   );
 };
-
-const XCircle = ({ size, className }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-  </svg>
-);
 
 export default MenuManagement;

@@ -20,7 +20,6 @@ function App() {
   const [tableNumber, setTableNumber] = useState('1'); 
   const [orderId, setOrderId] = useState('');
   
-  // ZOMATO BOTTOM SHEET STATES
   const [selectedDish, setSelectedDish] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [cookingRequest, setCookingRequest] = useState('');
@@ -28,7 +27,6 @@ function App() {
   const [mainDishQty, setMainDishQty] = useState(1); 
   const [sheetRecs, setSheetRecs] = useState({}); 
 
-  // CUSTOMIZE CART ITEM STATES
   const [editingCartItem, setEditingCartItem] = useState(null);
   const [editCartVariant, setEditCartVariant] = useState(null);
   const [editCartRequest, setEditCartRequest] = useState('');
@@ -364,13 +362,21 @@ function App() {
                         <h3 className="font-black text-slate-800 text-base md:text-lg leading-tight cursor-pointer" onClick={() => openDishSheet(dish)}>{dish.name}</h3>
                       </div>
 
-                      {/* 🚨 FOMO SOCIAL PROOF UPDATED 🚨 */}
-                      <div className="flex items-center gap-1.5 mb-3 pl-5 md:pl-6">
-                        <div className="flex items-center gap-1 bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-[10px] font-black">
-                          <Star size={10} className="fill-green-700" /> {dish.rating || 4.5}
+                      {/* 🚨 FIX: OPTIONAL RATING & SOCIAL PROOF */}
+                      {(dish.rating || dish.order_count) ? (
+                        <div className="flex items-center gap-1.5 mb-3 pl-5 md:pl-6">
+                          {dish.rating && (
+                            <div className="flex items-center gap-1 bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-[10px] font-black">
+                              <Star size={10} className="fill-green-700" /> {dish.rating}
+                            </div>
+                          )}
+                          {dish.order_count && (
+                            <span className="text-[9px] md:text-[10px] font-bold text-slate-400">{dish.order_count}+ orders this month</span>
+                          )}
                         </div>
-                        <span className="text-[9px] md:text-[10px] font-bold text-slate-400">{dish.order_count || 120}+ orders this month</span>
-                      </div>
+                      ) : (
+                        <div className="mb-3"></div> // Helps maintain visual layout if data is missing
+                      )}
 
                       <div className="flex items-center justify-between mt-auto pl-5 md:pl-6">
                         <div className="flex flex-col">
@@ -413,6 +419,7 @@ function App() {
           </div>
         )}
 
+        {/* 🚨 ZOMATO BOTTOM SHEET 🚨 */}
         {selectedDish && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); }}></div>
