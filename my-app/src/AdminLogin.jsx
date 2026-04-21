@@ -14,11 +14,16 @@ const AdminLogin = ({ onLoginSuccess }) => {
     setError('');
 
     try {
+      // 🚨 THE MASTER FIX: Cleaning inputs
+      // Faltu spaces hatayega aur email ko hamesha chote aksharon (lowercase) mein check karega
+      const cleanEmail = email.toLowerCase().trim();
+      const cleanPassword = password.trim();
+
       const { data, error: fetchError } = await supabase
         .from('restaurants')
         .select('*')
-        .eq('email', email)
-        .eq('password', password)
+        .ilike('email', cleanEmail) // ilike case-insensitive search karta hai
+        .eq('password', cleanPassword)
         .maybeSingle(); 
 
       if (fetchError || !data) {
@@ -47,7 +52,6 @@ const AdminLogin = ({ onLoginSuccess }) => {
         <p className="mt-2 text-center text-xs md:text-sm font-bold text-slate-400 uppercase tracking-widest">Sign in to your dashboard</p>
       </div>
 
-      {/* 🚨 RESPONSIVE BOX WRAPPER */}
       <div className="mt-8 sm:mx-auto w-full sm:max-w-md relative z-10">
         <div className="bg-white py-8 px-6 shadow-2xl rounded-2xl md:rounded-3xl sm:px-10 border border-slate-100">
           
