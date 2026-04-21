@@ -21,8 +21,8 @@ const SuperAdminLogin = () => {
 
   const SECRET_RECOVERY_KEY = "GOURMET-MASTER-2026"; 
 
-  const getMasterEmail = () => localStorage.getItem('master_email') || "founder@gourmet.com";
-  const getMasterPassword = () => localStorage.getItem('master_password') || "Aapka_Naya_Password_Yahan";
+  const getMasterEmail = () => localStorage.getItem('master_email') || "gargmrdhruv@gmail.com";
+  const getMasterPassword = () => localStorage.getItem('master_password') || "Dhruv@123";
 
   const handleLogin = (e) => {
     e.preventDefault();
