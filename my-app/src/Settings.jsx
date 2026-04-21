@@ -1,20 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from './AdminLayout';
 import { supabase } from './supabase';
-import { Store, Phone, Clock, MapPin, Upload, Loader2, Save, Type, Receipt, Plus, Trash2, QrCode, Copy, Download, ExternalLink } from 'lucide-react';
+import { 
+  Store, Phone, Clock, MapPin, Upload, Loader2, Save, Type, 
+  Receipt, Plus, Trash2, QrCode, Copy, Download, ExternalLink, Image as ImageIcon 
+} from 'lucide-react';
 
 const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [adminUser, setAdminUser] = useState(null);
+  
   const [taxes, setTaxes] = useState([]);
   const [name, setName] = useState('');
   const [tagline, setTagline] = useState('');
   const [address, setAddress] = useState('');
   const [openTime, setOpenTime] = useState('');
   const [closeTime, setCloseTime] = useState('');
+  
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState(null);
+  
+  // 🚨 NEW: Welcome Background States
+  const [welcomeBgUrl, setWelcomeBgUrl] = useState('');
+  const [welcomeBgFile, setWelcomeBgFile] = useState(null);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('admin_user');
@@ -41,6 +50,7 @@ const Settings = () => {
         setOpenTime(data.opening_time || '');
         setCloseTime(data.closing_time || '');
         setLogoUrl(data.logo_url || '');
+        setWelcomeBgUrl(data.welcome_bg_url || ''); // Fetching Background
         
         setTaxes(data.taxes || [
           { id: "cgst", name: "CGST", rate: 2.5, active: false },
@@ -56,9 +66,9 @@ const Settings = () => {
     }
   };
 
-  const uploadLogo = async (file) => {
+  const uploadFile = async (file, prefix) => {
     const fileExt = file.name.split('.').pop();
-    const fileName = `logo_${Date.now()}.${fileExt}`;
+    const fileName = `${prefix}_${Date.now()}.${fileExt}`;
     const { error } = await supabase.storage.from('restaurant-assets').upload(fileName, file);
     if (error) throw error;
     const { data } = supabase.storage.from('restaurant-assets').getPublicUrl(fileName);
@@ -72,7 +82,10 @@ const Settings = () => {
 
     try {
       let finalLogoUrl = logoUrl;
-      if (logoFile) finalLogoUrl = await uploadLogo(logoFile);
+      let finalBgUrl = welcomeBgUrl;
+
+      if (logoFile) finalLogoUrl = await uploadFile(logoFile, 'logo');
+      if (welcomeBgFile) finalBgUrl = await uploadFile(welcomeBgFile, 'bg'); // Uploading bg
 
       const safeOpenTime = openTime ? openTime : null;
       const safeCloseTime = closeTime ? closeTime : null;
@@ -85,6 +98,7 @@ const Settings = () => {
         opening_time: safeOpenTime,
         closing_time: safeCloseTime,
         logo_url: finalLogoUrl, 
+        welcome_bg_url: finalBgUrl, // Saving bg
         taxes: taxes
       };
 
@@ -97,20 +111,17 @@ const Settings = () => {
       if (fetchErr) throw fetchErr;
 
       if (existing) {
-        const { error: updateErr } = await supabase
-          .from('restaurant_settings')
-          .update(payload)
-          .eq('id', existing.id);
+        const { error: updateErr } = await supabase.from('restaurant_settings').update(payload).eq('id', existing.id);
         if (updateErr) throw updateErr; 
       } else {
-        const { error: insertErr } = await supabase
-          .from('restaurant_settings')
-          .insert([payload]);
+        const { error: insertErr } = await supabase.from('restaurant_settings').insert([payload]);
         if (insertErr) throw insertErr; 
       }
 
       setLogoUrl(finalLogoUrl);
       setLogoFile(null); 
+      setWelcomeBgUrl(finalBgUrl);
+      setWelcomeBgFile(null);
       alert("✅ Settings successfully saved!");
 
     } catch (error) {
@@ -121,7 +132,6 @@ const Settings = () => {
     }
   };
 
-  // 🚨 QR CODE GENERATION LOGIC 🚨
   const menuLink = adminUser ? `${window.location.origin}/?rest=${adminUser.id}` : '';
   const qrCodeUrl = adminUser ? `https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=${encodeURIComponent(menuLink)}` : '';
 
@@ -149,7 +159,9 @@ const Settings = () => {
 
   if (loading) return (
     <AdminLayout>
-      <div className="flex flex-col h-[60vh] items-center justify-center"><Loader2 className="animate-spin text-orange-500 mb-4" size={40} /></div>
+      <div className="flex flex-col h-[60vh] items-center justify-center">
+        <Loader2 className="animate-spin text-orange-500 mb-4" size={40} />
+      </div>
     </AdminLayout>
   );
 
@@ -165,37 +177,55 @@ const Settings = () => {
           
           {/* BRANDING SECTION */}
           <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100">
-            <h2 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2 border-b pb-3"><Store size={18} className="text-orange-500 md:w-5 md:h-5" /> Branding & Identity</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              <div className="col-span-1 md:col-span-2">
-                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Restaurant Logo</label>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 md:gap-6">
-                  <div className="h-20 w-20 md:h-24 md:w-24 rounded-2xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden relative flex-shrink-0">
-                    {logoFile ? <img src={URL.createObjectURL(logoFile)} className="h-full w-full object-contain p-2" /> : logoUrl ? <img src={logoUrl} className="h-full w-full object-contain p-2" /> : <span className="text-[10px] md:text-xs text-slate-400 font-bold">No Logo</span>}
+            <h2 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2 border-b pb-3">
+              <Store size={18} className="text-orange-500 md:w-5 md:h-5" /> Branding & Identity
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Logo Upload */}
+              <div className="col-span-1 border border-slate-100 p-4 rounded-2xl bg-slate-50/50">
+                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Restaurant Logo</label>
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-white overflow-hidden relative shrink-0">
+                    {logoFile ? <img src={URL.createObjectURL(logoFile)} className="h-full w-full object-contain p-1" /> : logoUrl ? <img src={logoUrl} className="h-full w-full object-contain p-1" /> : <span className="text-[9px] text-slate-400 font-bold">No Logo</span>}
                   </div>
-                  <div className="relative w-full sm:w-auto">
+                  <div className="relative w-full">
                     <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                    <button type="button" className="w-full sm:w-auto bg-slate-100 text-slate-700 px-4 py-3 md:px-6 rounded-xl font-bold flex justify-center items-center gap-2 text-sm"><Upload size={16} /> Choose New Logo</button>
+                    <button type="button" className="w-full bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 text-xs hover:border-orange-500 transition-all"><Upload size={14} /> Upload Logo</button>
                   </div>
                 </div>
               </div>
+
+              {/* 🚨 NEW: Welcome Background Upload */}
+              <div className="col-span-1 border border-slate-100 p-4 rounded-2xl bg-slate-50/50">
+                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Menu Welcome Background</label>
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-white overflow-hidden relative shrink-0">
+                    {welcomeBgFile ? <img src={URL.createObjectURL(welcomeBgFile)} className="h-full w-full object-cover" /> : welcomeBgUrl ? <img src={welcomeBgUrl} className="h-full w-full object-cover" /> : <ImageIcon className="text-slate-300" size={24}/>}
+                  </div>
+                  <div className="relative w-full">
+                    <input type="file" accept="image/*" onChange={(e) => setWelcomeBgFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                    <button type="button" className="w-full bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 text-xs hover:border-orange-500 transition-all"><Upload size={14} /> Upload Background</button>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Store size={12}/> Restaurant Name</label>
-                <input type="text" value={name || adminUser?.name || ''} readOnly className="w-full bg-slate-100 border-none rounded-xl p-3 md:p-4 font-bold text-slate-400 cursor-not-allowed select-none text-sm md:text-base" />
+                <input type="text" value={name || adminUser?.name || ''} readOnly className="w-full bg-slate-100 border-none rounded-xl p-3 font-bold text-slate-400 cursor-not-allowed select-none text-sm" />
               </div>
               <div>
                 <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Type size={12}/> Tagline</label>
-                <input type="text" value={tagline} onChange={(e) => setTagline(e.target.value)} className="w-full bg-slate-50 border-none rounded-xl p-3 md:p-4 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 text-sm md:text-base" placeholder="E.g. Delivering Happiness..." />
+                <input type="text" value={tagline} onChange={(e) => setTagline(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 text-sm" placeholder="E.g. Delivering Happiness..." />
               </div>
             </div>
           </div>
 
-          {/* 🚨 NEW: UNIVERSAL QR CODE & LINK SECTION 🚨 */}
+          {/* QR CODE SECTION */}
           <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <h2 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2 border-b pb-3"><QrCode size={18} className="text-purple-500 md:w-5 md:h-5" /> Live Menu & Universal QR Code</h2>
             
             <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
-              {/* QR Image */}
               <div className="flex flex-col items-center gap-3 shrink-0">
                 <div className="w-40 h-40 md:w-48 md:h-48 bg-white border-4 border-slate-100 rounded-2xl shadow-sm p-2 flex items-center justify-center relative overflow-hidden group">
                   {qrCodeUrl ? (
@@ -203,7 +233,6 @@ const Settings = () => {
                   ) : (
                     <Loader2 className="animate-spin text-slate-300" size={32} />
                   )}
-                  {/* Hover Overlay */}
                   <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl backdrop-blur-sm cursor-pointer" onClick={downloadQR}>
                      <Download size={24} className="text-white mb-2" />
                      <span className="text-[10px] font-black text-white uppercase tracking-widest">Download HD</span>
@@ -214,7 +243,6 @@ const Settings = () => {
                 </button>
               </div>
 
-              {/* Link Details */}
               <div className="flex-1 w-full space-y-4">
                 <div>
                   <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Your Unique Menu URL</label>
@@ -240,7 +268,7 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* CONTACT SECTION */}
+          {/* CONTACT & LOCATION */}
           <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100">
             <h2 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2 border-b pb-3"><Phone size={18} className="text-blue-500 md:w-5 md:h-5" /> Contact & Location</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
@@ -259,7 +287,7 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* TAX MANAGEMENT SECTION */}
+          {/* TAX MANAGEMENT */}
           <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 border-b pb-3 gap-3 sm:gap-0">
               <h2 className="text-base md:text-lg font-bold text-slate-800 flex items-center gap-2"><Receipt size={18} className="text-green-500 md:w-5 md:h-5" /> Billing & Taxes</h2>

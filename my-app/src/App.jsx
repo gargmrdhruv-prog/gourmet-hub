@@ -4,47 +4,58 @@ import AdminLogin from './AdminLogin';
 import AdminDashboard from './AdminDashboard';
 import Settings from "./Settings";
 import SuperAdminDashboard from './SuperAdminDashboard'; 
-import { Loader2, CheckCircle2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, ShoppingCart, Edit3 } from 'lucide-react';
+import { Loader2, CheckCircle2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, ShoppingCart, Edit3, BellRing } from 'lucide-react';
 import SuperAdminLogin from './SuperAdminLogin';
 
 function App() {
   const [user, setUser] = useState(null);
-  const [view, setView] = useState('welcome');
+  
+  // 🚨 PERSISTENCE: Recovering Session from LocalStorage
+  const [view, setView] = useState(() => localStorage.getItem('gourmet_view') || 'welcome');
+  const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('gourmet_cart')) || []);
+  const [placedOrderItems, setPlacedOrderItems] = useState(() => JSON.parse(localStorage.getItem('gourmet_placed_items')) || []);
+  const [tableNumber, setTableNumber] = useState(() => localStorage.getItem('gourmet_table') || ''); 
+  const [orderId, setOrderId] = useState(() => localStorage.getItem('gourmet_order_id') || '');
+  
   const [dishes, setDishes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [allDishes, setAllDishes] = useState([]);
   const [filteredDishes, setFilteredDishes] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tableNumber, setTableNumber] = useState('1'); 
-  const [orderId, setOrderId] = useState('');
   
+  // BOTTOM SHEET STATES
   const [selectedDish, setSelectedDish] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [cookingRequest, setCookingRequest] = useState('');
-  
   const [mainDishQty, setMainDishQty] = useState(1); 
   const [sheetRecs, setSheetRecs] = useState({}); 
 
+  // EDIT CART STATES
   const [editingCartItem, setEditingCartItem] = useState(null);
   const [editCartVariant, setEditCartVariant] = useState(null);
   const [editCartRequest, setEditCartRequest] = useState('');
 
   const [storeSettings, setStoreSettings] = useState({
-    name: 'Loading...', logo: '', tagline: '', taxes: [] 
+    name: 'Loading...', logo: '', tagline: '', welcome_bg_url: '', taxes: [] 
   });
 
   const currentURL = window.location.href; 
 
+  // 🚨 SYNC STATES TO LOCAL STORAGE
+  useEffect(() => { localStorage.setItem('gourmet_cart', JSON.stringify(cart)); }, [cart]);
+  useEffect(() => { localStorage.setItem('gourmet_view', view); }, [view]);
+  useEffect(() => { localStorage.setItem('gourmet_table', tableNumber); }, [tableNumber]);
+  useEffect(() => { localStorage.setItem('gourmet_placed_items', JSON.stringify(placedOrderItems)); }, [placedOrderItems]);
+  useEffect(() => { localStorage.setItem('gourmet_order_id', orderId); }, [orderId]);
+
   useEffect(() => {
     const init = async () => {
       const savedUser = localStorage.getItem('admin_user');
-      let currentUser = null;
       let activeRestId = 1;
 
       if (savedUser) {
-        currentUser = JSON.parse(savedUser);
+        const currentUser = JSON.parse(savedUser);
         setUser(currentUser);
         activeRestId = currentUser.id;
       } else {
@@ -87,10 +98,12 @@ function App() {
           name: settingsData.restaurant_name || 'Gourmet Menu',
           logo: settingsData.logo_url || '',
           tagline: settingsData.tagline || '',
+          // Default bg if admin hasn't set one
+          welcome_bg_url: settingsData.welcome_bg_url || 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200', 
           taxes: settingsData.taxes || [] 
         });
       } else {
-        setStoreSettings({ name: 'Welcome to Our Menu', logo: '', tagline: '', taxes: [] });
+        setStoreSettings({ name: 'Welcome to Our Menu', logo: '', tagline: '', welcome_bg_url: '', taxes: [] });
       }
 
       setCategories(catData || []);
@@ -230,25 +243,28 @@ function App() {
   const totalTaxAmount = taxBreakdown.reduce((sum, tax) => sum + tax.amount, 0);
   const grandTotal = Math.round(subtotal + totalTaxAmount); 
 
-  const handleConfirmOrder = async () => {
+  // 🚨 CALL WAITER (Submit order, clear cart, show waiter screen)
+  const handleCallWaiter = async () => {
     if (loading) return;
     if (cart.length === 0) return alert("Cart is empty!");
+    if (!tableNumber || tableNumber.trim() === "") return alert("Please enter a table number so the waiter can find you!");
 
     setLoading(true);
     try {
-      const finalTableStatus = tableNumber && tableNumber.trim() !== "" ? tableNumber : "Parcel";
       const activeRestId = user?.id || new URLSearchParams(window.location.search).get('rest') || 1;
 
       const { data, error } = await supabase
         .from('orders')
         .insert([{ 
-          restaurant_id: activeRestId, table_number: finalTableStatus, total_bill: grandTotal, status: 'pending', items: cart 
+          restaurant_id: activeRestId, table_number: tableNumber, total_bill: grandTotal, status: 'pending', items: cart 
         }]).select();
       
       if (error) throw error;
       if (data && data.length > 0) {
         setOrderId(data[0].id.toString().slice(0, 4));
-        setView('receipt');
+        setPlacedOrderItems([...cart]); // Save items for waiter view
+        setCart([]); // Clear cart
+        setView('waiter_screen');
       }
     } catch (error) {
       alert("Error: " + error.message);
@@ -257,15 +273,27 @@ function App() {
     }
   };
 
+  // Allows customer to start fresh if they want to order more
+  const clearSessionAndStartNew = () => {
+    localStorage.removeItem('gourmet_cart');
+    localStorage.removeItem('gourmet_placed_items');
+    localStorage.removeItem('gourmet_order_id');
+    setCart([]);
+    setPlacedOrderItems([]);
+    setOrderId('');
+    setView('menu');
+  };
+
   if (loading) {
     return (
       <div className="h-screen bg-slate-900 flex flex-col items-center justify-center text-white gap-4">
          <div className="animate-spin rounded-full h-10 w-10 border-b-4 border-orange-500"></div>
-         <p className="text-sm font-bold text-slate-400 uppercase">Verifying Access...</p>
+         <p className="text-sm font-bold text-slate-400 uppercase">Loading Menu...</p>
       </div>
     );
   }
 
+  // --- PORTALS ---
   if (currentURL.includes('super-admin-login')) return <SuperAdminLogin />;
   if (currentURL.includes('super-admin')) return localStorage.getItem('super_admin_auth') === 'true' ? <SuperAdminDashboard /> : <SuperAdminLogin />;
   if (currentURL.includes('admin-login')) {
@@ -278,12 +306,21 @@ function App() {
     return <AdminDashboard />;
   }
 
+  // --- CUSTOMER VIEWS ---
+
+  // 1. WELCOME SCREEN
   if (view === 'welcome') {
     return (
       <div className="w-full min-h-screen bg-slate-900 flex flex-col justify-end md:justify-center pb-12 md:pb-20 px-6 md:px-12 relative overflow-hidden">
-        <img src="https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200" className="absolute inset-0 w-full h-full object-cover opacity-40" alt="bg" />
+        {/* Dynamic Background from Admin Settings */}
+        {storeSettings.welcome_bg_url && (
+          <img src={storeSettings.welcome_bg_url} className="absolute inset-0 w-full h-full object-cover opacity-40" alt="bg" />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent"></div>
         <div className="relative z-10 text-center max-w-2xl mx-auto w-full">
+          {storeSettings.logo && (
+            <img src={storeSettings.logo} alt="Logo" className="w-24 h-24 md:w-32 md:h-32 object-contain mx-auto mb-6 rounded-2xl bg-white/10 p-2 backdrop-blur-md" />
+          )}
           <h2 className="text-orange-400 font-serif italic mb-2 text-xl md:text-2xl">Welcome to</h2>
           <h1 className="text-5xl md:text-7xl font-serif font-black text-white mb-8 tracking-tighter italic">{storeSettings.name}</h1>
           <button onClick={() => setView('menu')} className="w-full md:w-auto md:px-16 bg-orange-500 text-white py-5 rounded-2xl md:rounded-full font-black text-lg shadow-2xl hover:bg-orange-600 transition-all hover:scale-105">
@@ -294,6 +331,7 @@ function App() {
     )
   }
 
+  // 2. MAIN MENU
   if (view === 'menu') {
     return (
       <div className="w-full min-h-screen bg-slate-50 pb-32">
@@ -362,7 +400,7 @@ function App() {
                         <h3 className="font-black text-slate-800 text-base md:text-lg leading-tight cursor-pointer" onClick={() => openDishSheet(dish)}>{dish.name}</h3>
                       </div>
 
-                      {/* 🚨 FIX: OPTIONAL RATING & SOCIAL PROOF */}
+                      {/* Optional Rating/Order Count */}
                       {(dish.rating || dish.order_count) ? (
                         <div className="flex items-center gap-1.5 mb-3 pl-5 md:pl-6">
                           {dish.rating && (
@@ -375,7 +413,7 @@ function App() {
                           )}
                         </div>
                       ) : (
-                        <div className="mb-3"></div> // Helps maintain visual layout if data is missing
+                        <div className="mb-3"></div> 
                       )}
 
                       <div className="flex items-center justify-between mt-auto pl-5 md:pl-6">
@@ -419,7 +457,7 @@ function App() {
           </div>
         )}
 
-        {/* 🚨 ZOMATO BOTTOM SHEET 🚨 */}
+        {/* BOTTOM SHEET */}
         {selectedDish && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); }}></div>
@@ -572,56 +610,11 @@ function App() {
             </div>
           </div>
         )}
-
-        {editingCartItem && (
-          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingCartItem(null)}></div>
-            <div className="relative bg-white w-full md:w-[500px] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl p-6 md:p-8">
-                <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h2 className="text-xl font-black text-slate-900 italic">Customize {editingCartItem.name}</h2>
-                    <button onClick={() => setEditingCartItem(null)} className="text-slate-400 hover:text-slate-900 bg-slate-100 p-2 rounded-full"><X size={18} /></button>
-                </div>
-
-                {editingCartItem.variants && editingCartItem.variants.length > 0 && (
-                    <div className="mb-6">
-                      <h3 className="font-bold text-slate-800 mb-3 text-sm">Quantity</h3>
-                      <div className="space-y-2">
-                        {editingCartItem.variants.map((variant, idx) => (
-                          <label key={idx} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${editCartVariant?.name === variant.name ? 'border-orange-500 bg-orange-50/30' : 'border-slate-100 bg-white hover:border-orange-200'}`}>
-                            <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
-                            <div className="flex items-center gap-3">
-                              <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
-                              <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${editCartVariant?.name === variant.name ? 'border-orange-500' : 'border-slate-300'}`}>
-                                {editCartVariant?.name === variant.name && <div className="w-2 h-2 md:w-2.5 md:h-2.5 bg-orange-500 rounded-full shrink-0"></div>}
-                              </div>
-                            </div>
-                            <input type="radio" name="edit-variant" className="hidden" checked={editCartVariant?.name === variant.name} onChange={() => setEditCartVariant(variant)} />
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                )}
-
-                <div className="mb-8">
-                    <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-sm flex items-center gap-2"><MessageSquare size={14}/> Cooking Request</h3>
-                    <textarea 
-                      placeholder="e.g. Don't make it too spicy" 
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 md:p-4 text-sm font-medium text-slate-700 outline-none focus:border-orange-500 focus:bg-white transition-all resize-none h-20"
-                      value={editCartRequest}
-                      onChange={(e) => setEditCartRequest(e.target.value)}
-                    />
-                </div>
-
-                <button onClick={handleUpdateCartItem} className="w-full bg-orange-500 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-orange-500/20 active:scale-95 transition-all">
-                    Update Item
-                </button>
-            </div>
-          </div>
-        )}
       </div>
     )
   }
 
+  // 3. CHECKOUT CART
   if (view === 'checkout') {
     if (cart.length === 0) {
       return (
@@ -701,16 +694,19 @@ function App() {
           </div>
 
           <div className="bg-white p-6 rounded-[2rem] shadow-sm mb-8 border border-slate-100">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block text-center mb-4">Table Number (Optional)</label>
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest block text-center mb-4">Table Number</label>
             <input type="number" min="1" placeholder="Eg: 5" className="w-full text-center text-4xl font-black bg-slate-50 p-4 rounded-2xl text-slate-900 border-none outline-none mb-3 focus:ring-2 focus:ring-orange-500 transition-all" value={tableNumber} onChange={e => setTableNumber(e.target.value)} />
-            <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">Leave blank for Takeaway</p>
+            <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">Required for waiter to serve you</p>
           </div>
 
-          <button onClick={handleConfirmOrder} disabled={loading} className="w-full bg-orange-500 text-white py-5 rounded-2xl font-black text-sm shadow-xl shadow-orange-500/20 uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-orange-600 active:scale-95 transition-all">
-            {loading ? <Loader2 className="animate-spin" size={24} /> : 'Place Order Now'}
+          {/* 🚨 CALL WAITER BUTTON */}
+          <button onClick={handleCallWaiter} disabled={loading || !tableNumber} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-sm shadow-xl uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-black active:scale-95 transition-all disabled:opacity-50">
+            {loading ? <Loader2 className="animate-spin" size={24} /> : <><BellRing size={20}/> Call Waiter To Confirm</>}
           </button>
+          {!tableNumber && <p className="text-[10px] text-red-500 text-center font-bold mt-2 uppercase tracking-widest">Please enter Table Number first</p>}
         </div>
         
+        {/* Cart Item Edit Modal */}
         {editingCartItem && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditingCartItem(null)}></div>
@@ -760,21 +756,44 @@ function App() {
     )
   }
 
-  if (view === 'receipt') {
+  // 🚨 4. NEW VIEW: WAITER CONFIRMATION SCREEN (No Prices shown)
+  if (view === 'waiter_screen') {
     return (
-      <div className="w-full min-h-screen bg-slate-900 p-4 md:p-8 flex items-center justify-center">
-        <div className="bg-white w-full max-w-md rounded-[3rem] p-8 md:p-12 text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95">
-          <div className="absolute top-0 left-0 right-0 h-3 bg-orange-500"></div>
-          <div className="my-8 md:my-10 inline-flex bg-green-50 p-5 md:p-6 rounded-full text-green-500 border border-green-100 shadow-inner"><CheckCircle2 size={48} /></div>
-          <h2 className="text-2xl md:text-3xl font-serif font-black text-slate-900 mb-2 italic">Order Sent!</h2>
-          <p className="text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-widest mb-10 leading-relaxed">
-            {tableNumber ? `Table ${tableNumber}` : 'Takeaway'} order <br/>has been registered
-          </p>
-          <div className="mb-10 md:mb-12 p-6 bg-slate-50 rounded-2xl md:rounded-3xl border border-dashed border-slate-200">
-             <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 md:mb-2">Receipt ID</p>
-             <p className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">#{orderId}</p>
+      <div className="w-full min-h-screen bg-slate-900 p-4 md:p-8 flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200')] bg-cover opacity-10 blur-sm"></div>
+        
+        <div className="bg-white w-full max-w-md rounded-[3rem] p-8 text-center shadow-2xl relative z-10">
+          <div className="mx-auto w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-6">
+            <BellRing size={32} />
           </div>
-          <button onClick={() => { setCart([]); setView('welcome'); setTableNumber('1') }} className="w-full bg-slate-900 text-white py-4 md:py-5 rounded-xl md:rounded-2xl font-black text-[11px] md:text-xs uppercase tracking-widest hover:bg-slate-800 transition-all hover:scale-105 shadow-xl shadow-slate-900/20">Start New Order</button>
+          <h2 className="text-3xl font-serif font-black text-slate-900 mb-2 italic">Show to Waiter</h2>
+          <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-6">
+            Table {tableNumber} • Order #{orderId}
+          </p>
+
+          <div className="bg-slate-50 rounded-2xl p-5 mb-8 text-left max-h-[40vh] overflow-y-auto border border-slate-100 shadow-inner custom-scrollbar">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 border-b pb-2">Items to confirm</p>
+            <div className="space-y-4">
+              {placedOrderItems.map((item, idx) => (
+                <div key={idx} className="flex gap-3 items-start border-b border-slate-100 last:border-0 pb-3 last:pb-0">
+                  <div className="bg-slate-200 text-slate-800 text-xs font-black px-2.5 py-1 rounded shrink-0">{item.qty}x</div>
+                  <div>
+                    <span className="font-bold text-slate-800 block leading-tight">{item.name}</span>
+                    {item.selectedVariant && <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded mt-1 inline-block">Variant: {item.selectedVariant.name}</span>}
+                    {item.cookingRequest && <p className="text-[10px] text-red-500 font-bold mt-1 italic">Note: {item.cookingRequest}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-[10px] text-slate-400 font-bold uppercase mb-6 leading-relaxed">
+            Your order has been sent to the kitchen display.<br/> Waiter will confirm it shortly.
+          </p>
+
+          <button onClick={clearSessionAndStartNew} className="w-full bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all">
+            Order More Items
+          </button>
         </div>
       </div>
     )
