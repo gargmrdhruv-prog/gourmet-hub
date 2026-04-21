@@ -272,11 +272,9 @@ function App() {
       
       if (error) throw error;
       if (data && data.length > 0) {
-        // Append new order ID if customer is ordering again for the same table
         const newId = data[0].id.toString().slice(0, 4);
         setOrderId(prev => prev ? `${prev}, #${newId}` : newId);
         
-        // Append new items to already placed items
         setPlacedOrderItems(prev => [...prev, ...cart]); 
         setCart([]); 
         setView('waiter_screen');
@@ -286,6 +284,17 @@ function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 🚨 THE MISSING FUNCTION FIX: Restored this function back!
+  const clearSessionAndStartNew = () => {
+    localStorage.removeItem('gourmet_cart');
+    localStorage.removeItem('gourmet_placed_items');
+    localStorage.removeItem('gourmet_order_id');
+    setCart([]);
+    setPlacedOrderItems([]);
+    setOrderId('');
+    setView('menu');
   };
 
   if (loading) {
@@ -350,7 +359,6 @@ function App() {
               </div>
             </div>
             
-            {/* 🚨 ACTIVE ORDER BUTTON (FIXED FOR ALL SCREENS) */}
             {placedOrderItems.length > 0 && (
               <button onClick={() => setView('waiter_screen')} className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-2 md:px-4 md:py-2.5 rounded-xl font-black text-[10px] md:text-xs uppercase flex items-center gap-1.5 border border-blue-200 transition-all shrink-0 shadow-sm animate-in zoom-in">
                 <BellRing size={16} className="animate-pulse" /> <span className="hidden sm:inline">Active Order</span>
@@ -384,7 +392,6 @@ function App() {
                 const totalQtyInCart = cartItemsForDish.reduce((sum, item) => sum + item.qty, 0);
                 const isNonVeg = dish.tags?.some(t => t.toLowerCase().includes('non-veg'));
                 
-                // 🚨 EXTRACTING EXTRA TAGS FOR VISIBILITY
                 const extraTags = dish.tags?.filter(t => t !== 'Veg 🟢' && t !== 'Non-Veg 🔴' && t !== 'Bestseller ⭐') || [];
 
                 return (
@@ -415,7 +422,6 @@ function App() {
                         <h3 className="font-black text-slate-800 text-base md:text-lg leading-tight cursor-pointer" onClick={() => openDishSheet(dish)}>{dish.name}</h3>
                       </div>
 
-                      {/* 🚨 VISIBLE EXTRA TAGS (Chef's Special, Spicy, etc) */}
                       {extraTags.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-1.5 mb-2 pl-5 md:pl-6">
                           {extraTags.map((tag, idx) => (
@@ -872,9 +878,8 @@ function App() {
             Your order has been sent to the kitchen display.<br/> Waiter will confirm it shortly.
           </p>
 
-          {/* 🚨 FIX 1: Menu button that keeps memory alive */}
           <button onClick={() => setView('menu')} className="w-full bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all mb-3">
-            Add More Items to Table
+            Add More Items
           </button>
           
           <button onClick={clearSessionAndStartNew} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-red-500 transition-all">
