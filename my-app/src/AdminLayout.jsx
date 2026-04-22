@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, UtensilsCrossed, BarChart3, Settings, LogOut, ExternalLink, Menu, X } from 'lucide-react'; // 🚨 Menu aur X add kiya
+import { LayoutDashboard, ShoppingCart, UtensilsCrossed, BarChart3, Settings, LogOut, ExternalLink, Menu, X, Store } from 'lucide-react'; 
 
 const AdminLayout = ({ children }) => {
   const [logo, setLogo] = useState('');
   const [restName, setRestName] = useState('Loading...');
   const [adminId, setAdminId] = useState(1);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 🚨 Mobile Sidebar Toggle State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -60,7 +60,7 @@ const AdminLayout = ({ children }) => {
   return (
     <div className="flex min-h-screen bg-gray-100">
       
-      {/* 🚨 MOBILE OVERLAY (Jab sidebar khula ho toh piche black shade aayega) */}
+      {/* MOBILE OVERLAY */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden" 
@@ -68,36 +68,41 @@ const AdminLayout = ({ children }) => {
         />
       )}
 
-      {/* --- SIDEBAR (Responsive) --- */}
+      {/* --- SIDEBAR --- */}
       <aside className={`fixed inset-y-0 left-0 w-64 bg-slate-900 text-white flex flex-col z-50 shadow-2xl shadow-slate-900/40 border-r border-slate-800 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         
-        {/* LOGO SECTION */}
+        {/* 🚨 THE FIX: LOGO & NAME SECTION (Responsive & Safe from Overflow) */}
         <div className="p-6 flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center gap-3.5">
-            <div className="h-10 w-10 rounded-2xl bg-slate-800 flex items-center justify-center overflow-hidden border border-orange-500/20 shadow-inner flex-shrink-0">
+          <div className="flex items-center gap-3.5 w-full overflow-hidden">
+            
+            {/* Logo Container - shrink-0 ensures it never gets squeezed */}
+            <div className="h-10 w-10 rounded-2xl bg-white flex items-center justify-center overflow-hidden border border-orange-500/20 shadow-inner shrink-0">
               {logo ? (
-                <img src={logo} alt="brand logo" className="h-full w-full object-cover" />
+                <img src={logo} alt="brand logo" className="h-full w-full object-contain p-0.5" />
               ) : (
                 <span className="font-black text-xl text-orange-500 italic">{restName.charAt(0)}</span>
               )}
             </div>
-            <div className="overflow-hidden">
+            
+            {/* Text Container - min-w-0 prevents text from pushing layout limits */}
+            <div className="flex-1 min-w-0">
               <h1 className="text-sm font-black italic text-white leading-tight truncate">{restName}</h1>
               <p className="text-[9px] text-gray-400 uppercase tracking-widest mt-1">Admin Portal</p>
             </div>
           </div>
+
           {/* Close button inside mobile sidebar */}
-          <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
+          <button className="md:hidden text-slate-400 hover:text-white shrink-0 ml-2" onClick={() => setIsSidebarOpen(false)}>
             <X size={20} />
           </button>
         </div>
 
-        <nav className="flex-1 px-4 py-8 space-y-2.5 overflow-y-auto">
+        <nav className="flex-1 px-4 py-8 space-y-2.5 overflow-y-auto custom-scrollbar">
           {menuItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              onClick={() => setIsSidebarOpen(false)} // 🚨 Mobile par click karte hi sidebar band ho jayega
+              onClick={() => setIsSidebarOpen(false)} 
               className={`flex items-center gap-3.5 p-3.5 rounded-xl transition-all duration-300 font-semibold group ${
                 location.pathname === item.path 
                 ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' 
@@ -134,15 +139,14 @@ const AdminLayout = ({ children }) => {
         </div>
       </aside>
 
-      {/* --- MAIN CONTENT (Responsive Margin) --- */}
+      {/* --- MAIN CONTENT --- */}
       <main className="flex-1 md:ml-64 flex flex-col min-h-screen">
         
         {/* --- TOP HEADER --- */}
         <header className="bg-white/95 backdrop-blur-sm h-16 border-b border-gray-100 flex items-center justify-between px-4 md:px-8 sticky top-0 z-20 shadow-sm">
-          <div className="flex items-center gap-3">
-            {/* 🚨 HAMBURGER BUTTON FOR MOBILE */}
+          <div className="flex items-center gap-3 min-w-0">
             <button 
-              className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
               onClick={() => setIsSidebarOpen(true)}
             >
               <Menu size={24} />
@@ -152,17 +156,17 @@ const AdminLayout = ({ children }) => {
             </h2>
           </div>
           
-          <div className="flex items-center gap-3 md:gap-4">
-            <div className="text-right hidden sm:block"> {/* Mobile par text chupayenge, sirf logo dikhayenge */}
-              <p className="text-xs font-extrabold text-slate-950 tracking-tight">{restName}</p>
+          <div className="flex items-center gap-3 md:gap-4 shrink-0">
+            <div className="text-right hidden sm:block max-w-[150px] md:max-w-[200px]"> 
+              <p className="text-xs font-extrabold text-slate-950 tracking-tight truncate">{restName}</p>
               <p className="text-[10px] text-green-500 font-bold uppercase tracking-wider flex items-center gap-1 justify-end">
                 <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span> Online
               </p>
             </div>
             
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 border-2 border-slate-50 shadow-inner overflow-hidden flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 border-2 border-slate-50 shadow-inner overflow-hidden flex items-center justify-center shrink-0">
               {logo ? (
-                <img src={logo} alt="admin profile" className="h-full w-full object-cover" />
+                <img src={logo} alt="admin profile" className="h-full w-full object-cover bg-white" />
               ) : (
                 <span className="font-black text-xs md:text-sm text-slate-500 uppercase">{restName.substring(0, 2)}</span>
               )}
@@ -170,7 +174,6 @@ const AdminLayout = ({ children }) => {
           </div>
         </header>
 
-        {/* 🚨 RESPONSIVE PADDING FOR MAIN CONTENT */}
         <div className="p-4 md:p-8 lg:p-10 w-full max-w-[100vw] overflow-x-hidden">
           {children}
         </div>
