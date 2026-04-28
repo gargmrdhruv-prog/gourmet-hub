@@ -528,46 +528,49 @@ function App() {
             <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
               <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); }}></div>
               
-              <div className="relative bg-white w-full md:w-[500px] h-[85vh] md:h-auto md:max-h-[95vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
+              <div className="relative bg-white w-full md:w-[500px] max-h-[85vh] md:h-auto md:max-h-[90vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
                 
-                <button onClick={() => { setSelectedDish(null); setSheetRecs({}); }} className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full backdrop-blur-md">
-                  <X size={20} />
+                <button onClick={() => { setSelectedDish(null); setSheetRecs({}); }} className="absolute top-3 right-3 z-20 bg-black/50 text-white p-1.5 rounded-full backdrop-blur-md">
+                  <X size={18} />
                 </button>
 
-                <div className="overflow-y-auto custom-scrollbar flex-1 pb-[140px] md:pb-[160px]">
-                  <div className="w-full h-56 md:h-64 bg-slate-100 relative">
+                <div className="overflow-y-auto custom-scrollbar flex-1 pb-[100px] md:pb-[110px]">
+                  
+                  {/* 🚨 FIX 1: IMAGE HEIGHT REDUCED (h-36 for mobile) */}
+                  <div className="w-full h-36 md:h-48 bg-slate-100 relative shrink-0">
                     <img src={selectedDish.image_url || `https://source.unsplash.com/600x400/?food,${selectedDish.name}`} className="w-full h-full object-cover" />
                   </div>
                   
-                  <div className="p-5 md:p-6">
-                    <div className="flex items-center gap-2 mb-2">
-                       <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
-                       <h2 className="text-xl md:text-2xl font-black text-slate-900">{selectedDish.name}</h2>
+                  <div className="p-4">
+                    <div className="flex items-start gap-2 mb-1.5">
+                       <div className="mt-1 w-3.5 h-3.5 border-2 border-green-600 flex items-center justify-center rounded-sm shrink-0"><div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div></div>
+                       <h2 className="text-lg md:text-xl font-black text-slate-900 leading-tight">{selectedDish.name}</h2>
                     </div>
 
                     {selectedDish.tags && selectedDish.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-3">
+                      <div className="flex flex-wrap gap-1 mb-2 pl-5">
                         {selectedDish.tags.map((tag, idx) => (
-                          <span key={idx} className="text-[9px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest border border-slate-200">
+                          <span key={idx} className="text-[8px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded uppercase tracking-widest border border-slate-200">
                             {tag}
                           </span>
                         ))}
                       </div>
                     )}
 
-                    <p className="text-xs md:text-sm text-slate-500 mb-6">{selectedDish.description}</p>
-
+<p className="text-[10px] md:text-xs text-slate-500 mb-4 pl-5 leading-snug">{selectedDish.description}</p>
                     {selectedDish.variants && selectedDish.variants.length > 0 && (
-                      <div className="mb-6 md:mb-8">
-                        <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Quantity <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Select Any 1</span></h3>
-                        <div className="space-y-2 md:space-y-3">
+                      <div className="mb-4">
+                        <h3 className="font-bold text-slate-800 mb-2 text-[11px] md:text-xs flex justify-between items-center">
+                          Select Quantity <span className="text-[8px] md:text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-normal uppercase tracking-widest">Required Any 1</span>
+                        </h3>
+                        <div className="space-y-1.5">
                           {selectedDish.variants.map((variant, idx) => (
-                            <label key={idx} style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` } : {}} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedVariant?.name === variant.name ? '' : 'border-slate-100 bg-white'}`}>
-                              <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
-                              <div className="flex items-center gap-3">
-                                <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
-                                <div style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color } : {}} className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${selectedVariant?.name === variant.name ? '' : 'border-slate-300'}`}>
-                                  {selectedVariant?.name === variant.name && <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0"></div>}
+                            <label key={idx} style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` } : {}} className={`flex items-center justify-between p-2.5 md:p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedVariant?.name === variant.name ? '' : 'border-slate-100 bg-white'}`}>
+                              <span className="font-bold text-slate-800 text-xs">{variant.name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-black text-slate-900 text-xs">₹{variant.price}</span>
+                                <div style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color } : {}} className={`w-3.5 h-3.5 md:w-4 md:h-4 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${selectedVariant?.name === variant.name ? '' : 'border-slate-300'}`}>
+                                  {selectedVariant?.name === variant.name && <div style={{ backgroundColor: storeSettings.theme_color }} className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full shrink-0"></div>}
                                 </div>
                               </div>
                               <input type="radio" name="variant" className="hidden" checked={selectedVariant?.name === variant.name} onChange={() => setSelectedVariant(variant)} />
@@ -577,42 +580,44 @@ function App() {
                       </div>
                     )}
 
-                    <div className="mb-6 md:mb-8">
-                      <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-xs md:text-sm flex items-center gap-2"><MessageSquare size={14}/> Add a cooking request</h3>
+                    {/* 🚨 FIX 4: COMPACT COOKING REQUEST BOX (h-10 instead of h-20) */}
+                    <div className="mb-4">
+                      <h3 className="font-bold text-slate-800 mb-1.5 text-[11px] md:text-xs flex items-center gap-1.5"><MessageSquare size={12}/> Cooking request</h3>
                       <textarea 
-                        placeholder="e.g. Don't make it too spicy" 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 md:p-4 text-xs md:text-sm font-medium text-slate-700 outline-none focus:bg-white transition-all resize-none h-20 md:h-24"
+                        placeholder="e.g. Make it less spicy" 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] md:text-xs font-medium text-slate-700 outline-none focus:bg-white transition-all resize-none h-10 md:h-12"
                         value={cookingRequest}
                         onChange={(e) => setCookingRequest(e.target.value)}
                       />
                     </div>
 
+                    {/* 🚨 FIX 5: COMPACT RECOMMENDATIONS */}
                     {getSmartRecs(selectedDish).length > 0 && (
                       <div>
-                        <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
-                        <div className="flex overflow-x-auto gap-3 md:gap-4 pb-4 no-scrollbar">
+                        <h3 className="font-bold text-slate-800 mb-2 text-[11px] md:text-xs">Pairs well with</h3>
+                        <div className="flex overflow-x-auto gap-2 md:gap-3 pb-2 no-scrollbar">
                           {getSmartRecs(selectedDish).map(rec => {
                             const hasVariants = rec.variants && rec.variants.length > 0;
                             return (
-                              <div key={rec.id} className="min-w-[160px] md:min-w-[180px] bg-white border-2 border-slate-100 rounded-2xl p-2 md:p-3 shadow-sm shrink-0 flex flex-col">
-                                <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
-                                <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-2">{rec.name}</p>
+                              <div key={rec.id} className="min-w-[130px] md:min-w-[150px] bg-white border border-slate-100 rounded-xl p-2 shadow-sm shrink-0 flex flex-col">
+                                <img src={rec.image_url} className="w-full h-12 md:h-14 object-cover rounded-lg mb-1.5 bg-slate-100" />
+                                <p className="font-bold text-slate-800 text-[9px] md:text-[10px] truncate mb-1.5">{rec.name}</p>
                                 
                                 {hasVariants ? (
-                                  <div className="mt-auto flex flex-col gap-1.5 w-full">
+                                  <div className="mt-auto flex flex-col gap-1 w-full">
                                     {rec.variants.map((v, i) => {
                                       const qty = sheetRecs[`${rec.id}-${v.name}`]?.qty || 0;
                                       return (
-                                        <div key={i} className="flex items-center justify-between text-[9px] md:text-[10px] bg-slate-50 rounded-lg p-1 border border-slate-100">
-                                          <span className="text-slate-700 font-bold pl-1">{v.name} - ₹{v.price}</span>
+                                        <div key={i} className="flex items-center justify-between text-[8px] md:text-[9px] bg-slate-50 rounded p-1 border border-slate-100">
+                                          <span className="text-slate-700 font-bold pl-0.5 truncate pr-1">{v.name} - ₹{v.price}</span>
                                           {qty > 0 ? (
-                                            <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-1.5 rounded px-1 border">
-                                               <button onClick={() => updateSheetRecQty(rec, v, -1)} className="font-black px-1.5">-</button>
+                                            <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-1 rounded px-0.5 border">
+                                               <button onClick={() => updateSheetRecQty(rec, v, -1)} className="font-black px-1">-</button>
                                                <span className="font-black">{qty}</span>
-                                               <button onClick={() => updateSheetRecQty(rec, v, 1)} className="font-black px-1.5">+</button>
+                                               <button onClick={() => updateSheetRecQty(rec, v, 1)} className="font-black px-1">+</button>
                                             </div>
                                           ) : (
-                                            <button onClick={() => updateSheetRecQty(rec, v, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-2 py-0.5 rounded border font-bold shadow-sm">Add</button>
+                                            <button onClick={() => updateSheetRecQty(rec, v, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-1.5 py-0.5 rounded border font-bold shadow-sm">Add</button>
                                           )}
                                         </div>
                                       )
@@ -622,16 +627,16 @@ function App() {
                                   (() => {
                                     const qty = sheetRecs[`${rec.id}-regular`]?.qty || 0;
                                     return (
-                                      <div className="flex justify-between items-center mt-auto bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                                        <span className="font-black text-slate-900 text-[10px] pl-1">₹{rec.price}</span>
+                                      <div className="flex justify-between items-center mt-auto bg-slate-50 p-1 rounded border border-slate-100">
+                                        <span className="font-black text-slate-900 text-[9px] pl-1">₹{rec.price}</span>
                                         {qty > 0 ? (
-                                          <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-2 rounded px-1 border">
-                                             <button onClick={() => updateSheetRecQty(rec, null, -1)} className="font-black px-1.5">-</button>
-                                             <span className="font-black text-[10px]">{qty}</span>
-                                             <button onClick={() => updateSheetRecQty(rec, null, 1)} className="font-black px-1.5">+</button>
+                                          <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-1.5 rounded px-1 border">
+                                             <button onClick={() => updateSheetRecQty(rec, null, -1)} className="font-black px-1">-</button>
+                                             <span className="font-black text-[9px]">{qty}</span>
+                                             <button onClick={() => updateSheetRecQty(rec, null, 1)} className="font-black px-1">+</button>
                                           </div>
                                         ) : (
-                                          <button onClick={() => updateSheetRecQty(rec, null, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-3 py-0.5 rounded border font-bold shadow-sm text-[10px]">Add</button>
+                                          <button onClick={() => updateSheetRecQty(rec, null, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-2 py-0.5 rounded border font-bold shadow-sm text-[9px]">Add</button>
                                         )}
                                       </div>
                                     )
@@ -646,13 +651,13 @@ function App() {
                   </div>
                 </div>
 
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-15px_30px_rgba(0,0,0,0.08)]">
-                  <div className="flex items-center justify-between mb-3 px-2">
-                    <span className="font-bold text-slate-800 text-xs md:text-sm">Main Item Quantity</span>
-                    <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1">
-                      <button onClick={() => setMainDishQty(Math.max(1, mainDishQty - 1))} className="font-black text-slate-600 text-lg px-2">-</button>
-                      <span className="text-sm font-black text-slate-800">{mainDishQty}</span>
-                      <button onClick={() => setMainDishQty(mainDishQty + 1)} className="font-black text-slate-600 text-lg px-2">+</button>
+                <div className="absolute bottom-0 left-0 right-0 p-3 bg-white border-t border-slate-100 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+                  <div className="flex items-center justify-between mb-2.5 px-1">
+                    <span className="font-bold text-slate-800 text-[11px] md:text-sm">Main Item Quantity</span>
+                    <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5">
+                      <button onClick={() => setMainDishQty(Math.max(1, mainDishQty - 1))} className="font-black text-slate-600 text-base px-2">-</button>
+                      <span className="text-xs font-black text-slate-800">{mainDishQty}</span>
+                      <button onClick={() => setMainDishQty(mainDishQty + 1)} className="font-black text-slate-600 text-base px-2">+</button>
                     </div>
                   </div>
 
@@ -673,7 +678,7 @@ function App() {
                     }}
                     disabled={selectedDish.variants?.length > 0 && !selectedVariant}
                     style={{ backgroundColor: selectedDish.variants?.length > 0 && !selectedVariant ? '#CBD5E1' : storeSettings.theme_color }}
-                    className={`w-full text-white py-3.5 md:py-4 ${storeSettings.theme_button} font-black text-sm uppercase tracking-widest shadow-xl active:scale-95 transition-all`}
+                    className={`w-full text-white py-3 ${storeSettings.theme_button} font-black text-[11px] md:text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all`}
                   >
                     Add {getSheetTotals().items > 1 ? `${getSheetTotals().items} items` : 'item'} • ₹{getSheetTotals().price}
                   </button>
