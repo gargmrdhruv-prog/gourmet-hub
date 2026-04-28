@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import { Building2, LayoutDashboard, Wallet, Users, PlusCircle, LogOut, X, Loader2, Edit, Trash2, Menu } from 'lucide-react';
+import ThemeCustomizer from './ThemeCustomizer'; // 🚨 IMPORTED THEME CUSTOMIZER
 
 const SuperAdminDashboard = () => {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard'); 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 🚨 Mobile Sidebar Toggle
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
 
-  // Modal & Edit States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null); 
+  const [modalTab, setModalTab] = useState('details'); // 🚨 NEW STATE FOR MODAL TABS
   
   const [newRest, setNewRest] = useState({
     name: '', contact: '', email: '', password: '', address: '', payment: 'unpaid'
@@ -62,8 +63,13 @@ const SuperAdminDashboard = () => {
         if (error) throw error;
         alert("✅ Client Details Updated Successfully!");
       } else {
-        const { error } = await supabase.from('restaurants').insert([payload]);
+        const { error, data } = await supabase.from('restaurants').insert([payload]).select();
         if (error) throw error;
+        
+        // Ensure settings row exists for new restaurant
+        if(data && data.length > 0) {
+            await supabase.from('restaurant_settings').insert([{ restaurant_id: data[0].id }]);
+        }
         alert("✅ New Client Onboarded Successfully!");
       }
 
@@ -87,6 +93,7 @@ const SuperAdminDashboard = () => {
       payment: rest.subscription_status || 'unpaid'
     });
     setEditingId(rest.id);
+    setModalTab('details'); // Reset tab to details
     setIsModalOpen(true);
   };
 
@@ -106,6 +113,7 @@ const SuperAdminDashboard = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
+    setModalTab('details');
     setNewRest({ name: '', contact: '', email: '', password: '', address: '', payment: 'unpaid' });
   };
 
@@ -121,7 +129,7 @@ const SuperAdminDashboard = () => {
   return (
     <div className="flex min-h-screen bg-slate-50 relative">
       
-      {/* 🚨 MOBILE OVERLAY */}
+      {/* MOBILE OVERLAY */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" 
@@ -165,7 +173,7 @@ const SuperAdminDashboard = () => {
 
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 md:ml-64 w-full">
-        {/* MOBILE HEADER (Only visible on small screens) */}
+        {/* MOBILE HEADER */}
         <div className="md:hidden bg-white h-16 border-b border-gray-200 flex items-center px-4 sticky top-0 z-30">
           <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-slate-800">
             <Menu size={24} />
@@ -267,41 +275,66 @@ const SuperAdminDashboard = () => {
               <button onClick={closeModal} className="text-slate-400 hover:text-red-500 bg-white p-2 rounded-full shadow-sm"><X size={18} /></button>
             </div>
             
-            <form onSubmit={handleSaveRestaurant} className="p-5 md:p-8 space-y-5 md:space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                <div>
-                  <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase block mb-1.5 md:mb-2">Restaurant Name *</label>
-                  <input type="text" required value={newRest.name} onChange={(e) => setNewRest({...newRest, name: e.target.value})} className="w-full bg-slate-50 rounded-xl p-3 md:p-4 text-sm md:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" />
-                </div>
-                <div>
-                  <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase block mb-1.5 md:mb-2">Contact Number</label>
-                  <input type="text" value={newRest.contact} onChange={(e) => setNewRest({...newRest, contact: e.target.value})} className="w-full bg-slate-50 rounded-xl p-3 md:p-4 text-sm md:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" />
-                </div>
+            {/* 🚨 MODAL TABS FOR EDITING 🚨 */}
+            {editingId && (
+              <div className="flex border-b border-slate-100">
+                <button 
+                  onClick={() => setModalTab('details')}
+                  className={`flex-1 py-3 text-sm font-bold border-b-2 transition-all ${modalTab === 'details' ? 'border-orange-500 text-orange-600 bg-orange-50/30' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                >
+                  Business Details
+                </button>
+                <button 
+                  onClick={() => setModalTab('theme')}
+                  className={`flex-1 py-3 text-sm font-bold border-b-2 transition-all ${modalTab === 'theme' ? 'border-orange-500 text-orange-600 bg-orange-50/30' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}
+                >
+                  Personalization (Theme)
+                </button>
               </div>
+            )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 p-4 md:p-5 bg-orange-50/50 rounded-2xl border border-orange-100">
-                <div>
-                  <label className="text-[9px] md:text-[10px] font-black text-orange-600 uppercase block mb-1.5 md:mb-2">Login Email *</label>
-                  <input type="email" required value={newRest.email} onChange={(e) => setNewRest({...newRest, email: e.target.value})} className="w-full bg-white border border-orange-200 rounded-xl p-3 md:p-4 text-sm md:text-base font-bold outline-none focus:ring-2 focus:ring-orange-500" />
-                </div>
-                <div>
-                  <label className="text-[9px] md:text-[10px] font-black text-orange-600 uppercase block mb-1.5 md:mb-2">Password *</label>
-                  <input type="text" required value={newRest.password} onChange={(e) => setNewRest({...newRest, password: e.target.value})} className="w-full bg-white border border-orange-200 rounded-xl p-3 md:p-4 text-sm md:text-base font-bold outline-none focus:ring-2 focus:ring-orange-500" />
-                </div>
-              </div>
+            <div className="p-5 md:p-8">
+              {modalTab === 'details' || !editingId ? (
+                <form onSubmit={handleSaveRestaurant} className="space-y-5 md:space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div>
+                      <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase block mb-1.5 md:mb-2">Restaurant Name *</label>
+                      <input type="text" required value={newRest.name} onChange={(e) => setNewRest({...newRest, name: e.target.value})} className="w-full bg-slate-50 rounded-xl p-3 md:p-4 text-sm md:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase block mb-1.5 md:mb-2">Contact Number</label>
+                      <input type="text" value={newRest.contact} onChange={(e) => setNewRest({...newRest, contact: e.target.value})} className="w-full bg-slate-50 rounded-xl p-3 md:p-4 text-sm md:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" />
+                    </div>
+                  </div>
 
-              <div>
-                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase block mb-1.5 md:mb-2">Payment Status</label>
-                <select value={newRest.payment} onChange={(e) => setNewRest({...newRest, payment: e.target.value})} className="w-full bg-slate-50 rounded-xl p-3 md:p-4 text-sm md:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500">
-                  <option value="paid">✅ Paid (Active)</option>
-                  <option value="unpaid">⏳ Unpaid (Trial)</option>
-                </select>
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 p-4 md:p-5 bg-orange-50/50 rounded-2xl border border-orange-100">
+                    <div>
+                      <label className="text-[9px] md:text-[10px] font-black text-orange-600 uppercase block mb-1.5 md:mb-2">Login Email *</label>
+                      <input type="email" required value={newRest.email} onChange={(e) => setNewRest({...newRest, email: e.target.value})} className="w-full bg-white border border-orange-200 rounded-xl p-3 md:p-4 text-sm md:text-base font-bold outline-none focus:ring-2 focus:ring-orange-500" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] md:text-[10px] font-black text-orange-600 uppercase block mb-1.5 md:mb-2">Password *</label>
+                      <input type="text" required value={newRest.password} onChange={(e) => setNewRest({...newRest, password: e.target.value})} className="w-full bg-white border border-orange-200 rounded-xl p-3 md:p-4 text-sm md:text-base font-bold outline-none focus:ring-2 focus:ring-orange-500" />
+                    </div>
+                  </div>
 
-              <button type="submit" disabled={adding} className="w-full bg-orange-500 text-white py-3 md:py-4 rounded-xl font-black text-sm md:text-base shadow-xl hover:bg-orange-600 flex justify-center items-center">
-                {adding ? <Loader2 className="animate-spin" size={20} /> : (editingId ? 'Update Restaurant' : 'Create Profile')}
-              </button>
-            </form>
+                  <div>
+                    <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase block mb-1.5 md:mb-2">Payment Status</label>
+                    <select value={newRest.payment} onChange={(e) => setNewRest({...newRest, payment: e.target.value})} className="w-full bg-slate-50 rounded-xl p-3 md:p-4 text-sm md:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500">
+                      <option value="paid">✅ Paid (Active)</option>
+                      <option value="unpaid">⏳ Unpaid (Trial)</option>
+                    </select>
+                  </div>
+
+                  <button type="submit" disabled={adding} className="w-full bg-orange-500 text-white py-3 md:py-4 rounded-xl font-black text-sm md:text-base shadow-xl hover:bg-orange-600 flex justify-center items-center">
+                    {adding ? <Loader2 className="animate-spin" size={20} /> : (editingId ? 'Update Restaurant' : 'Create Profile')}
+                  </button>
+                </form>
+              ) : (
+                /* 🚨 THEME CUSTOMIZER COMPONENT PLACEMENT */
+                <ThemeCustomizer restaurantId={editingId} />
+              )}
+            </div>
           </div>
         </div>
       )}
