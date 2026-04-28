@@ -11,7 +11,7 @@ function App() {
   const [user, setUser] = useState(null);
   
   // PERSISTENCE: Recovering Session from LocalStorage
-  const [view, setView] = useState(() => localStorage.getItem('gourmet_view') || 'welcome');
+  const [view, setView] = useState('welcome');
   const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('gourmet_cart')) || []);
   const [placedOrderItems, setPlacedOrderItems] = useState(() => JSON.parse(localStorage.getItem('gourmet_placed_items')) || []);
   const [tableNumber, setTableNumber] = useState(() => localStorage.getItem('gourmet_table') || ''); 
@@ -47,7 +47,6 @@ function App() {
 
   // SYNC STATES TO LOCAL STORAGE
   useEffect(() => { localStorage.setItem('gourmet_cart', JSON.stringify(cart)); }, [cart]);
-  useEffect(() => { localStorage.setItem('gourmet_view', view); }, [view]);
   useEffect(() => { localStorage.setItem('gourmet_table', tableNumber); }, [tableNumber]);
   useEffect(() => { localStorage.setItem('gourmet_placed_items', JSON.stringify(placedOrderItems)); }, [placedOrderItems]);
   useEffect(() => { localStorage.setItem('gourmet_order_id', orderId); }, [orderId]);
@@ -329,27 +328,32 @@ function App() {
 
   // --- CUSTOMER VIEWS (WITH DYNAMIC THEME ENVELOPE) ---
   return (
-    <div style={{ fontFamily: storeSettings.theme_font }} className="relative min-h-screen bg-slate-50">
-      
-      {/* 🚨 THE NEW GLOBAL BACKGROUND WATERMARK 🚨 */}
+<div style={{ fontFamily: storeSettings.theme_font }} className="relative min-h-screen">      
+{/* 🚨 FIX POINT 2: Global Background Opacity & Size Optimization */}
       {storeSettings.welcome_bg_url && view !== 'welcome' && (
         <div 
-          className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-[0.06] md:opacity-[0.08] pointer-events-none"
+          className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-20 pointer-events-none"
           style={{ backgroundImage: `url(${storeSettings.welcome_bg_url})` }}
         />
       )}
+      
 
       {/* Wrapping all content in a relative z-10 div so it sits above the background */}
       <div className="relative z-10">
       </div>
+
       
-      {/* 1. WELCOME SCREEN */}
+{/* 🚨 FIX POINT 1: Welcome Screen Size Optimization */}
       {view === 'welcome' && (
         <div className="w-full min-h-screen bg-slate-900 flex flex-col justify-end md:justify-center pb-12 md:pb-20 px-6 md:px-12 relative overflow-hidden">
           {storeSettings.welcome_bg_url && (
-            <img src={storeSettings.welcome_bg_url} className="absolute inset-0 w-full h-full object-cover opacity-40" alt="bg" />
+            <img
+             src={storeSettings.welcome_bg_url}
+            className="absolute inset-0 w-full h-full object-cover opacity-50"
+            alt="bg"
+          />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent"></div>
           <div className="relative z-10 text-center max-w-2xl mx-auto w-full">
             {storeSettings.logo && (
               <img src={storeSettings.logo} alt="Logo" className="w-24 h-24 md:w-32 md:h-32 object-contain mx-auto mb-6 rounded-2xl bg-white/10 p-2 backdrop-blur-md" />
@@ -359,7 +363,7 @@ function App() {
             <button 
               onClick={() => setView('menu')} 
               style={{ backgroundColor: storeSettings.theme_color }}
-              className={`w-full md:w-auto md:px-16 text-white py-5 ${storeSettings.theme_button} font-black text-lg shadow-2xl transition-all hover:scale-105`}
+              className={`w-full md:w-auto md:px-16 text-white py-5 ${storeSettings.theme_button} font-black text-lg shadow-2xl transition-all hover:scale-105 active:scale-95`}
             >
               EXPLORE MENU
             </button>
@@ -369,7 +373,7 @@ function App() {
 
       {/* 2. MAIN MENU */}
       {view === 'menu' && (
-        <div className="w-full min-h-screen bg-transparent pb-32">
+        <div className="w-full min-h-screen bg-slate-50/80 backdrop-blur-[2px]  pb-32">
           <header className="bg-white shadow-sm sticky top-0 z-40 border-b border-slate-100">
             <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 md:gap-5 overflow-hidden">

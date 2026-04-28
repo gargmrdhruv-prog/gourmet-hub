@@ -21,7 +21,7 @@ const Settings = () => {
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState(null);
   
-  // 🚨 NEW: Welcome Background States
+  // 🚨 Welcome Background States
   const [welcomeBgUrl, setWelcomeBgUrl] = useState('');
   const [welcomeBgFile, setWelcomeBgFile] = useState(null);
 
@@ -85,7 +85,7 @@ const Settings = () => {
       let finalBgUrl = welcomeBgUrl;
 
       if (logoFile) finalLogoUrl = await uploadFile(logoFile, 'logo');
-      if (welcomeBgFile) finalBgUrl = await uploadFile(welcomeBgFile, 'bg'); // Uploading bg
+      if (welcomeBgFile) finalBgUrl = await uploadFile(welcomeBgFile, 'bg'); 
 
       const safeOpenTime = openTime ? openTime : null;
       const safeCloseTime = closeTime ? closeTime : null;
@@ -182,6 +182,7 @@ const Settings = () => {
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
               {/* Logo Upload */}
               <div className="col-span-1 border border-slate-100 p-4 rounded-2xl bg-slate-50/50">
                 <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Restaurant Logo</label>
@@ -194,9 +195,10 @@ const Settings = () => {
                     <button type="button" className="w-full bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 text-xs hover:border-orange-500 transition-all"><Upload size={14} /> Upload Logo</button>
                   </div>
                 </div>
+                <input type="text" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="Or paste logo URL here" className="mt-3 w-full bg-white border border-slate-200 rounded-xl p-2 text-xs font-medium text-slate-600 outline-none focus:border-orange-500" />
               </div>
 
-              {/* 🚨 NEW: Welcome Background Upload */}
+              {/* 🚨 UPDATED: Welcome Background Upload & URL */}
               <div className="col-span-1 border border-slate-100 p-4 rounded-2xl bg-slate-50/50">
                 <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Menu Welcome Background</label>
                 <div className="flex items-center gap-4">
@@ -205,18 +207,22 @@ const Settings = () => {
                   </div>
                   <div className="relative w-full">
                     <input type="file" accept="image/*" onChange={(e) => setWelcomeBgFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                    <button type="button" className="w-full bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 text-xs hover:border-orange-500 transition-all"><Upload size={14} /> Upload Background</button>
+                    <button type="button" className="w-full bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 text-xs hover:border-orange-500 transition-all"><Upload size={14} /> Upload Image</button>
                   </div>
                 </div>
+                {/* 🚨 URL Input for quick demo setup */}
+                <input type="text" value={welcomeBgUrl} onChange={(e) => setWelcomeBgUrl(e.target.value)} placeholder="Or paste background URL here" className="mt-3 w-full bg-white border border-slate-200 rounded-xl p-2 text-xs font-medium text-slate-600 outline-none focus:border-orange-500" />
               </div>
 
-              <div>
-                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Store size={12}/> Restaurant Name</label>
-                <input type="text" value={name || adminUser?.name || ''} readOnly className="w-full bg-slate-100 border-none rounded-xl p-3 font-bold text-slate-400 cursor-not-allowed select-none text-sm" />
-              </div>
-              <div>
-                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Type size={12}/> Tagline</label>
-                <input type="text" value={tagline} onChange={(e) => setTagline(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 text-sm" placeholder="E.g. Delivering Happiness..." />
+              <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Store size={12}/> Restaurant Name</label>
+                  <input type="text" value={name || adminUser?.name || ''} readOnly className="w-full bg-slate-100 border-none rounded-xl p-3 font-bold text-slate-400 cursor-not-allowed select-none text-sm" />
+                </div>
+                <div>
+                  <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Type size={12}/> Tagline</label>
+                  <input type="text" value={tagline} onChange={(e) => setTagline(e.target.value)} className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 text-sm" placeholder="E.g. Delivering Happiness..." />
+                </div>
               </div>
             </div>
           </div>
