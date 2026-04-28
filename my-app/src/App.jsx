@@ -332,7 +332,7 @@ function App() {
 {/* 🚨 FIX POINT 2: Global Background Opacity & Size Optimization */}
       {storeSettings.welcome_bg_url && view !== 'welcome' && (
         <div 
-          className="fixed inset-0 z-0 bg-contain bg-center bg-no-repeat opacity-40 pointer-events-none"
+          className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-[0.15] pointer-events-none"
           style={{ backgroundImage: `url(${storeSettings.welcome_bg_url})` }}
         />
       )}
@@ -349,11 +349,11 @@ function App() {
           {storeSettings.welcome_bg_url && (
             <img
              src={storeSettings.welcome_bg_url}
-            className="absolute inset-0 w-full h-full object-contain opacity-50 mt-10 md:mt-0"
+            className="absolute inset-0 w-full h-full object-cover object-center opacity-40"
             alt="bg"
           />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/70 to-transparent z-0"></div>
           <div className="relative z-10 text-center max-w-2xl mx-auto w-full">
             {storeSettings.logo && (
               <img src={storeSettings.logo} alt="Logo" className="w-24 h-24 md:w-32 md:h-32 object-contain mx-auto mb-6 rounded-2xl bg-white/10 p-2 backdrop-blur-md" />
@@ -423,8 +423,8 @@ function App() {
 
                   return (
                     <div key={dish.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl transition-all flex flex-col">
-                      <div className="w-full h-44 sm:h-48 md:h-52 bg-white relative cursor-pointer flex-shrink-0" onClick={() => openDishSheet(dish)}>
-                      <img src={dish.image_url || `https://source.unsplash.com/600x400/?food,${dish.name}`} className="w-full h-full object-contain p-2" alt={dish.name} />
+                      <div className="w-full aspect-[4/3] bg-slate-100 relative cursor-pointer flex-shrink-0" onClick={() => openDishSheet(dish)}>
+                      <img src={dish.image_url || `https://source.unsplash.com/600x400/?food,${dish.name}`} className="w-full h-full object-cover object-center" alt={dish.name} />
                         {!dish.is_available && (
                           <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center backdrop-blur-sm">
                             <span className="text-sm font-black text-white uppercase tracking-widest bg-black/50 px-4 py-2 rounded-lg">Sold Out</span>
