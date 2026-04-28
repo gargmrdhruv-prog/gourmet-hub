@@ -524,25 +524,26 @@ function App() {
           )}
 
           {/* BOTTOM SHEET (FIXED AUTO-SIZING POPUP) */}
+          {/* BOTTOM SHEET */}
           {selectedDish && (
             <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
               <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); }}></div>
               
-              <div className="relative bg-white w-full md:w-[500px] h-auto max-h-[92vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
+              <div className="relative bg-white w-full md:w-[500px] h-[85vh] md:h-auto md:max-h-[95vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
                 
-                <button onClick={() => { setSelectedDish(null); setSheetRecs({}); }} className="absolute top-4 right-4 z-20 bg-black/50 text-white p-2 rounded-full backdrop-blur-md">
+                <button onClick={() => { setSelectedDish(null); setSheetRecs({}); }} className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full backdrop-blur-md">
                   <X size={20} />
                 </button>
 
-                <div className="overflow-y-auto custom-scrollbar flex-1 w-full">
-                  <div className="w-full h-56 md:h-64 bg-slate-100 relative shrink-0">
+                <div className="overflow-y-auto custom-scrollbar flex-1 pb-[140px] md:pb-[160px]">
+                  <div className="w-full h-56 md:h-64 bg-slate-100 relative">
                     <img src={selectedDish.image_url || `https://source.unsplash.com/600x400/?food,${selectedDish.name}`} className="w-full h-full object-cover" />
                   </div>
                   
-                  <div className="p-5 md:p-6 pb-2">
+                  <div className="p-5 md:p-6">
                     <div className="flex items-center gap-2 mb-2">
-                       <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm shrink-0"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
-                       <h2 className="text-xl md:text-2xl font-black text-slate-900 leading-tight">{selectedDish.name}</h2>
+                       <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
+                       <h2 className="text-xl md:text-2xl font-black text-slate-900">{selectedDish.name}</h2>
                     </div>
 
                     {selectedDish.tags && selectedDish.tags.length > 0 && (
@@ -581,14 +582,14 @@ function App() {
                       <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-xs md:text-sm flex items-center gap-2"><MessageSquare size={14}/> Add a cooking request</h3>
                       <textarea 
                         placeholder="e.g. Don't make it too spicy" 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 md:p-4 text-xs md:text-sm font-medium text-slate-700 outline-none focus:bg-white transition-all resize-none h-16 md:h-20"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 md:p-4 text-xs md:text-sm font-medium text-slate-700 outline-none focus:bg-white transition-all resize-none h-20 md:h-24"
                         value={cookingRequest}
                         onChange={(e) => setCookingRequest(e.target.value)}
                       />
                     </div>
 
                     {getSmartRecs(selectedDish).length > 0 && (
-                      <div className="mb-4">
+                      <div>
                         <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
                         <div className="flex overflow-x-auto gap-3 md:gap-4 pb-4 no-scrollbar">
                           {getSmartRecs(selectedDish).map(rec => {
@@ -646,7 +647,7 @@ function App() {
                   </div>
                 </div>
 
-                <div className="p-4 bg-white border-t border-slate-100 shadow-[0_-15px_30px_rgba(0,0,0,0.08)] shrink-0 z-10">
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-15px_30px_rgba(0,0,0,0.08)]">
                   <div className="flex items-center justify-between mb-3 px-2">
                     <span className="font-bold text-slate-800 text-xs md:text-sm">Main Item Quantity</span>
                     <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1">
