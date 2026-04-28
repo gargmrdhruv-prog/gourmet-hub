@@ -332,7 +332,7 @@ function App() {
 {/* 🚨 FIX POINT 2: Global Background Opacity & Size Optimization */}
       {storeSettings.welcome_bg_url && view !== 'welcome' && (
         <div 
-          className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-40 pointer-events-none"
+          className="fixed inset-0 z-0 bg-contain bg-center bg-no-repeat opacity-40 pointer-events-none"
           style={{ backgroundImage: `url(${storeSettings.welcome_bg_url})` }}
         />
       )}
@@ -349,7 +349,7 @@ function App() {
           {storeSettings.welcome_bg_url && (
             <img
              src={storeSettings.welcome_bg_url}
-            className="absolute inset-0 w-full h-full object-cover opacity-50"
+            className="absolute inset-0 w-full h-full object-contain opacity-50 mt-10 md:mt-0"
             alt="bg"
           />
           )}
@@ -423,8 +423,8 @@ function App() {
 
                   return (
                     <div key={dish.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl transition-all flex flex-col">
-                      <div className="w-full h-44 sm:h-48 md:h-52 bg-slate-100 relative cursor-pointer flex-shrink-0" onClick={() => openDishSheet(dish)}>
-                        <img src={dish.image_url || `https://source.unsplash.com/600x400/?food,${dish.name}`} className="w-full h-full object-cover" alt={dish.name} />
+                      <div className="w-full h-44 sm:h-48 md:h-52 bg-white relative cursor-pointer flex-shrink-0" onClick={() => openDishSheet(dish)}>
+                      <img src={dish.image_url || `https://source.unsplash.com/600x400/?food,${dish.name}`} className="w-full h-full object-contain p-2" alt={dish.name} />
                         {!dish.is_available && (
                           <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center backdrop-blur-sm">
                             <span className="text-sm font-black text-white uppercase tracking-widest bg-black/50 px-4 py-2 rounded-lg">Sold Out</span>
