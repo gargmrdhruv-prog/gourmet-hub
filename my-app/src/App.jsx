@@ -332,7 +332,7 @@ function App() {
 {/* 🚨 FIX POINT 2: Global Background Opacity & Size Optimization */}
       {storeSettings.welcome_bg_url && view !== 'welcome' && (
         <div 
-          className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-20 pointer-events-none"
+          className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-40 pointer-events-none"
           style={{ backgroundImage: `url(${storeSettings.welcome_bg_url})` }}
         />
       )}
@@ -373,9 +373,9 @@ function App() {
 
       {/* 2. MAIN MENU */}
       {view === 'menu' && (
-        <div className="w-full min-h-screen bg-slate-50/80 backdrop-blur-[2px]  pb-32">
-          <header className="bg-white shadow-sm sticky top-0 z-40 border-b border-slate-100">
-            <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
+<div className="w-full min-h-screen bg-slate-50/30 backdrop-blur-sm pb-32">
+          <header className="bg-white/70 backdrop-blur-md shadow-sm sticky top-0 z-40 border-b border-white/20">
+              <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 md:gap-5 overflow-hidden">
                 <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm flex-shrink-0">
                   {storeSettings.logo ? <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-cover p-1" /> : <span style={{ color: storeSettings.theme_color }} className="font-black text-xl italic">{storeSettings.name.charAt(0)}</span>}
@@ -394,7 +394,7 @@ function App() {
             </div>
           </header>
 
-          <div className="sticky top-[81px] md:top-[97px] bg-white/95 backdrop-blur-md z-30 border-b border-slate-100/50 shadow-sm">
+          <div className="sticky top-[81px] md:top-[97px] bg-white/60 backdrop-blur-md z-30 border-b border-white/20 shadow-sm">
             <nav className="flex gap-3 md:gap-4 overflow-x-auto p-3 md:px-8 md:py-4 max-w-7xl mx-auto no-scrollbar">
               {categories.map(cat => (
                 <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
