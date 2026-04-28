@@ -528,10 +528,10 @@ function App() {
             <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
               <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); }}></div>
               
-              <div className="relative bg-white w-full md:w-[500px] h-[85vh] md:h-auto md:max-h-[95vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
+              <div className="relative bg-white w-full md:w-[500px] max-h-[85vh] md:h-auto md:max-h-[90vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
                 
-                <button onClick={() => { setSelectedDish(null); setSheetRecs({}); }} className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full backdrop-blur-md">
-                  <X size={20} />
+                <button onClick={() => { setSelectedDish(null); setSheetRecs({}); }} className="absolute top-3 right-3 z-20 bg-black/50 text-white p-1.5 rounded-full backdrop-blur-md">
+                  <X size={18} />
                 </button>
 
                 <div className="overflow-y-auto custom-scrollbar flex-1 pb-[140px] md:pb-[160px]">
