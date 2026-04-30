@@ -10,6 +10,9 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [adminUser, setAdminUser] = useState(null);
+  const [menuBgType, setMenuBgType] = useState('color'); // 'color' or 'image'
+  const [menuBgValue, setMenuBgValue] = useState('#f8fafc');
+  const [menuBgOpacity, setMenuBgOpacity] = useState(0.1);
   
   const [taxes, setTaxes] = useState([]);
   const [name, setName] = useState('');
@@ -51,6 +54,9 @@ const Settings = () => {
         setCloseTime(data.closing_time || '');
         setLogoUrl(data.logo_url || '');
         setWelcomeBgUrl(data.welcome_bg_url || ''); // Fetching Background
+        setMenuBgType(data.menu_bg_type || 'color');
+        setMenuBgValue(data.menu_bg_value || '#f8fafc');
+        setMenuBgOpacity(data.menu_bg_opacity ?? 0.1);
         
         setTaxes(data.taxes || [
           { id: "cgst", name: "CGST", rate: 2.5, active: false },
@@ -99,7 +105,11 @@ const Settings = () => {
         closing_time: safeCloseTime,
         logo_url: finalLogoUrl, 
         welcome_bg_url: finalBgUrl, // Saving bg
-        taxes: taxes
+        taxes: taxes,
+        menu_bg_type: menuBgType,
+        menu_bg_value: menuBgValue,
+        menu_bg_opacity: menuBgOpacity
+        
       };
 
       const { data: existing, error: fetchErr } = await supabase
@@ -182,6 +192,54 @@ const Settings = () => {
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {/* 🚨 NEW: MENU BACKGROUND SETTINGS */}
+          <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100 mt-6">
+            <h2 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2 border-b pb-3">
+              <ImageIcon size={18} className="text-purple-500 md:w-5 md:h-5" /> Menu Background
+            </h2>
+            
+            <div className="space-y-6">
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="bgType" checked={menuBgType === 'color'} onChange={() => setMenuBgType('color')} className="accent-purple-500" />
+                  <span className="text-sm font-bold text-slate-700">Solid Color</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="bgType" checked={menuBgType === 'image'} onChange={() => setMenuBgType('image')} className="accent-purple-500" />
+                  <span className="text-sm font-bold text-slate-700">Image URL</span>
+                </label>
+              </div>
+
+              {menuBgType === 'color' ? (
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Background Color Code</label>
+                  <div className="flex gap-3">
+                    <input type="color" value={menuBgValue} onChange={(e) => setMenuBgValue(e.target.value)} className="h-10 w-14 rounded cursor-pointer" />
+                    <input type="text" value={menuBgValue} onChange={(e) => setMenuBgValue(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2 font-bold text-slate-700 outline-none" />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Background Image URL</label>
+                  <input type="text" value={menuBgValue} onChange={(e) => setMenuBgValue(e.target.value)} placeholder="https://image-url.com/pic.jpg" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-700 outline-none" />
+                </div>
+              )}
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex justify-between">
+                  <span>Background Opacity (Visibility)</span>
+                  <span className="text-purple-600">{Math.round(menuBgOpacity * 100)}%</span>
+                </label>
+                <input 
+                  type="range" min="0" max="1" step="0.05" 
+                  value={menuBgOpacity} 
+                  onChange={(e) => setMenuBgOpacity(parseFloat(e.target.value))} 
+                  className="w-full accent-purple-500 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+            </div>
+          </div>
               
               {/* Logo Upload */}
               <div className="col-span-1 border border-slate-100 p-4 rounded-2xl bg-slate-50/50">

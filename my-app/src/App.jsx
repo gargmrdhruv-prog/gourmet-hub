@@ -39,8 +39,10 @@ function App() {
 
   // 🚨 THEME STATE ADDED
   const [storeSettings, setStoreSettings] = useState({
+    menu_bg_type: 'color', menu_bg_value: '#f8fafc', menu_bg_opacity: 0.1, // Add these
     name: 'Loading...', logo: '', tagline: '', welcome_bg_url: '', taxes: [],
     theme_color: '#F59E0B', theme_font: 'Poppins, sans-serif', theme_button: 'rounded-full' 
+    
   });
 
   const currentURL = window.location.href; 
@@ -115,9 +117,13 @@ function App() {
           tagline: settingsData.tagline || '',
           welcome_bg_url: settingsData.welcome_bg_url || 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200', 
           taxes: settingsData.taxes || [],
+          menu_bg_type: settingsData.menu_bg_type || 'color',
+          menu_bg_value: settingsData.menu_bg_value || '#f8fafc',
+          menu_bg_opacity: settingsData.menu_bg_opacity ?? 0.1,
           theme_color: settingsData.primary_color || '#F59E0B', // Default orange
           theme_font: settingsData.font_family || 'Poppins, sans-serif',
           theme_button: settingsData.button_style || 'rounded-full'
+          
         });
       } else {
         setStoreSettings({ name: 'Welcome to Our Menu', logo: '', tagline: '', welcome_bg_url: '', taxes: [], theme_color: '#F59E0B', theme_font: 'Poppins, sans-serif', theme_button: 'rounded-full' });
@@ -356,7 +362,20 @@ function App() {
 
       {/* 2. MAIN MENU */}
       {view === 'menu' && (
-        <div className="w-full min-h-screen bg-slate-50 pb-32">
+        <div className="w-full min-h-screen relative pb-32">
+          {/* 🚨 THE NEW CUSTOM MENU BACKGROUND 🚨 */}
+          <div 
+            className="fixed inset-0 z-0 pointer-events-none"
+            style={{
+              backgroundColor: storeSettings.menu_bg_type === 'color' ? storeSettings.menu_bg_value : 'transparent',
+              backgroundImage: storeSettings.menu_bg_type === 'image' && storeSettings.menu_bg_value ? `url(${storeSettings.menu_bg_value})` : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              opacity: storeSettings.menu_bg_opacity
+            }}
+          />
+          <div className="relative z-10 bg-white/30 backdrop-blur-sm min-h-screen">
           <header className="bg-white shadow-sm sticky top-0 z-40 border-b border-slate-100">
             <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 md:gap-5 overflow-hidden">
@@ -488,6 +507,7 @@ function App() {
                 })}
               </div>
             )}  
+          </div>
           </div>
 
           {cart.length > 0 && (
