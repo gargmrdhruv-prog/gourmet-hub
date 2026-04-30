@@ -161,9 +161,12 @@ function App() {
     }
   }, [selectedCategory, allDishes]);
 
+  // 🚨 ADD TO CART LOGIC FIXED: Base Price + Variant Price
   const addToCart = (dish, variant = null, request = "", closeSheet = true, qtyToAdd = 1) => {
     if (qtyToAdd <= 0) return;
-    const actualPrice = variant ? variant.price : dish.price;
+    
+    // Add variant price to base price if a variant is selected
+    const actualPrice = variant ? Number(dish.price) + Number(variant.price) : Number(dish.price);
     const cartItemId = variant ? `${dish.id}-${variant.name}` : `${dish.id}-regular`;
 
     setCart(prevCart => {
@@ -221,11 +224,8 @@ function App() {
     setCookingRequest('');
     setMainDishQty(1);
     setSheetRecs({});
-    if (dish.variants && dish.variants.length > 0) {
-      setSelectedVariant(dish.variants[0]);
-    } else {
-      setSelectedVariant(null);
-    }
+    // 🚨 By default, NO variant is selected. It implies "Regular"
+    setSelectedVariant(null);
   };
 
   const updateSheetRecQty = (dish, variant, change) => {
@@ -246,11 +246,14 @@ function App() {
     });
   };
 
+  // 🚨 SHEET TOTALS FIXED: Base + Variant
   const getSheetTotals = () => {
     if (!selectedDish) return { items: 0, price: 0 };
-    const mainPrice = (selectedVariant ? selectedVariant.price : selectedDish.price) * mainDishQty;
-    const recPrice = Object.values(sheetRecs).reduce((sum, item) => sum + (item.variant ? item.variant.price : item.dish.price) * item.qty, 0);
+    
+    const mainPrice = (selectedVariant ? Number(selectedDish.price) + Number(selectedVariant.price) : Number(selectedDish.price)) * mainDishQty;
+    const recPrice = Object.values(sheetRecs).reduce((sum, item) => sum + (item.variant ? Number(item.dish.price) + Number(item.variant.price) : Number(item.dish.price)) * item.qty, 0);
     const recItems = Object.values(sheetRecs).reduce((sum, item) => sum + item.qty, 0);
+    
     return {
       items: mainDishQty + recItems,
       price: mainPrice + recPrice
@@ -376,14 +379,12 @@ function App() {
         </div>
       )}
 
-      {/* 🚨 THE GLOBAL WRAPPER */}
       {view !== 'welcome' && (
         <div 
           className="w-full relative transition-colors duration-300"
           style={{ backgroundColor: view === 'menu' ? mainBgColor : secondaryPageBgColor, minHeight: `${vh}px` }}
         >
           
-          {/* THE FIXED BACKGROUND IMAGE */}
           {view === 'menu' && storeSettings.menu_bg_type === 'image' && storeSettings.menu_bg_value && (
             <div 
               className="fixed top-0 left-0 right-0 z-0 pointer-events-none transition-opacity duration-300"
@@ -398,7 +399,6 @@ function App() {
             />
           )}
 
-          {/* MAIN CONTENT LAYER */}
           <div className="relative z-10 flex flex-col" style={{ minHeight: `${vh}px` }}>
 
             {/* --- 2. MAIN MENU --- */}
@@ -703,7 +703,7 @@ function App() {
               </div>
             )}
             
-            {/* 🚨 FIXED: BOTTOM SHEET MOVED OUTSIDE SO IT WORKS ON ALL PAGES (MENU & CHECKOUT) 🚨 */}
+            {/* BOTTOM SHEET MOVED OUTSIDE SO IT WORKS ON ALL PAGES */}
             {selectedDish && (
               <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
                 <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); setEditingCartItem(null); }}></div>
@@ -739,13 +739,28 @@ function App() {
 
                       {selectedDish.variants && selectedDish.variants.length > 0 && (
                         <div className="mb-6 md:mb-8">
-                          <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Quantity <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Select Any 1</span></h3>
+                          <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Customize <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Select Any 1</span></h3>
                           <div className="space-y-2 md:space-y-3">
+                            
+                            {/* 🚨 THE REGULAR OPTION (BASE PRICE) - NOW OPTIONAL */}
+                            <label style={!selectedVariant ? { borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` } : {}} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${!selectedVariant ? '' : 'border-slate-100 bg-white'}`}>
+                              <span className="font-bold text-slate-800 text-sm">Regular (No Add-ons)</span>
+                              <div className="flex items-center gap-3">
+                                <span className="font-black text-slate-900 text-sm">₹{selectedDish.price}</span>
+                                <div style={!selectedVariant ? { borderColor: storeSettings.theme_color } : {}} className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${!selectedVariant ? '' : 'border-slate-300'}`}>
+                                  {!selectedVariant && <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0"></div>}
+                                </div>
+                              </div>
+                              <input type="radio" name="variant" className="hidden" checked={!selectedVariant} onChange={() => setSelectedVariant(null)} />
+                            </label>
+
+                            {/* DYNAMIC VARIANTS SHOWING ADDED PRICE */}
                             {selectedDish.variants.map((variant, idx) => (
                               <label key={idx} style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` } : {}} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedVariant?.name === variant.name ? '' : 'border-slate-100 bg-white'}`}>
                                 <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
                                 <div className="flex items-center gap-3">
-                                  <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
+                                  {/* Displays + ₹49 instead of full price to show it's an add-on */}
+                                  <span className="font-black text-slate-900 text-sm">+ ₹{variant.price}</span>
                                   <div style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color } : {}} className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${selectedVariant?.name === variant.name ? '' : 'border-slate-300'}`}>
                                     {selectedVariant?.name === variant.name && <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0"></div>}
                                   </div>
@@ -767,7 +782,6 @@ function App() {
                         />
                       </div>
 
-                      {/* Editing mode mein recommendations hide kardenge to avoid clutter */}
                       {!editingCartItem && getSmartRecs(selectedDish).length > 0 && (
                         <div>
                           <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
@@ -785,7 +799,8 @@ function App() {
                                         const qty = sheetRecs[`${rec.id}-${v.name}`]?.qty || 0;
                                         return (
                                           <div key={i} className="flex items-center justify-between text-[9px] md:text-[10px] bg-slate-50 rounded-lg p-1 border border-slate-100">
-                                            <span className="text-slate-700 font-bold pl-1">{v.name} - ₹{v.price}</span>
+                                            {/* Showing Total combined price here for clarity */}
+                                            <span className="text-slate-700 font-bold pl-1">{v.name} - ₹{Number(rec.price) + Number(v.price)}</span>
                                             {qty > 0 ? (
                                               <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-1.5 rounded px-1 border">
                                                  <button onClick={() => updateSheetRecQty(rec, v, -1)} className="font-black px-1.5">-</button>
@@ -839,9 +854,6 @@ function App() {
 
                     <button 
                       onClick={() => {
-                        if (selectedDish.variants?.length > 0 && !selectedVariant) {
-                          return alert("Please select Quantity (Half/Full) for the main dish!");
-                        }
                         addToCart(selectedDish, selectedVariant, cookingRequest, false, mainDishQty);
                         Object.values(sheetRecs).forEach(recItem => {
                           addToCart(recItem.dish, recItem.variant, "", false, recItem.qty);
@@ -853,8 +865,8 @@ function App() {
                         setSheetRecs({});
                         setEditingCartItem(null);
                       }}
-                      disabled={selectedDish.variants?.length > 0 && !selectedVariant}
-                      style={{ backgroundColor: selectedDish.variants?.length > 0 && !selectedVariant ? '#CBD5E1' : storeSettings.theme_color }}
+                      // 🚨 MANDATORY CHECK REMOVED
+                      style={{ backgroundColor: storeSettings.theme_color }}
                       className={`w-full text-white py-3.5 md:py-4 ${storeSettings.theme_button} font-black text-sm uppercase tracking-widest shadow-xl active:scale-95 transition-all`}
                     >
                       {editingCartItem ? 'Update Item' : `Add ${getSheetTotals().items > 1 ? `${getSheetTotals().items} items` : 'item'} • ₹${getSheetTotals().price}`}
