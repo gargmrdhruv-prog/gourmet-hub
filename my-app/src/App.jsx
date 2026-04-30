@@ -10,7 +10,6 @@ import SuperAdminLogin from './SuperAdminLogin';
 function App() {
   const [user, setUser] = useState(null);
   
-  // PERSISTENCE: Recovering Session from LocalStorage
   const [view, setView] = useState('welcome');
   const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('gourmet_cart')) || []);
   const [placedOrderItems, setPlacedOrderItems] = useState(() => JSON.parse(localStorage.getItem('gourmet_placed_items')) || []);
@@ -25,19 +24,25 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // BOTTOM SHEET STATES
+  // 🚨 VIEW HEIGHT FIX (For mobile scrolling jitter)
+  const [vh, setVh] = useState(window.innerHeight);
+  useEffect(() => {
+    const handleResize = () => {
+      setVh(window.innerHeight);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [selectedDish, setSelectedDish] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [cookingRequest, setCookingRequest] = useState('');
   const [mainDishQty, setMainDishQty] = useState(1); 
   const [sheetRecs, setSheetRecs] = useState({}); 
 
-  // EDIT CART STATES
+  // 🚨 EDIT CART ITEM STATES
   const [editingCartItem, setEditingCartItem] = useState(null);
-  const [editCartVariant, setEditCartVariant] = useState(null);
-  const [editCartRequest, setEditCartRequest] = useState('');
 
-  // 🚨 THEME & MENU BG STATES ADDED
   const [storeSettings, setStoreSettings] = useState({
     name: 'Loading...', logo: '', tagline: '', welcome_bg_url: '', taxes: [],
     theme_color: '#F59E0B', theme_font: 'Poppins, sans-serif', theme_button: 'rounded-full',
@@ -47,7 +52,6 @@ function App() {
 
   const currentURL = window.location.href; 
 
-  // SYNC STATES TO LOCAL STORAGE
   useEffect(() => { localStorage.setItem('gourmet_cart', JSON.stringify(cart)); }, [cart]);
   useEffect(() => { localStorage.setItem('gourmet_table', tableNumber); }, [tableNumber]);
   useEffect(() => { localStorage.setItem('gourmet_placed_items', JSON.stringify(placedOrderItems)); }, [placedOrderItems]);
@@ -165,11 +169,21 @@ function App() {
     const cartItemId = variant ? `${dish.id}-${variant.name}` : `${dish.id}-regular`;
 
     setCart(prevCart => {
-      const existing = prevCart.find(i => i.cartItemId === cartItemId);
+      // 🚨 FIX FOR EDITING: Remove the old item completely if we are replacing it
+      let workingCart = prevCart;
+      if (editingCartItem && editingCartItem.cartItemId !== cartItemId) {
+         workingCart = prevCart.filter(i => i.cartItemId !== editingCartItem.cartItemId);
+      }
+
+      const existing = workingCart.find(i => i.cartItemId === cartItemId);
       if (existing) {
-        return prevCart.map(i => i.cartItemId === cartItemId ? { ...i, qty: i.qty + qtyToAdd, cookingRequest: request || i.cookingRequest } : i);
+        // If editing the SAME variant, just update request/qty. If adding new, increment qty.
+        return workingCart.map(i => i.cartItemId === cartItemId 
+            ? { ...i, qty: editingCartItem ? qtyToAdd : i.qty + qtyToAdd, cookingRequest: request || i.cookingRequest } 
+            : i
+        );
       } else {
-        return [...prevCart, { ...dish, cartItemId, price: actualPrice, selectedVariant: variant, cookingRequest: request, qty: qtyToAdd }];
+        return [...workingCart, { ...dish, cartItemId, price: actualPrice, selectedVariant: variant, cookingRequest: request, qty: qtyToAdd }];
       }
     });
     
@@ -179,6 +193,7 @@ function App() {
       setCookingRequest('');
       setMainDishQty(1);
       setSheetRecs({});
+      setEditingCartItem(null);
     }
   }
 
@@ -190,12 +205,23 @@ function App() {
     });
   }
 
+  // 🚨 OPEN EDIT SHEET
+  const openEditCartItem = (item) => {
+    setEditingCartItem(item);
+    setSelectedDish(item); // Open the same bottom sheet logic but prefilled
+    setSelectedVariant(item.selectedVariant);
+    setCookingRequest(item.cookingRequest || '');
+    setMainDishQty(item.qty);
+    setSheetRecs({}); // Recs reset for editing to keep it clean
+  }
+
   const getSmartRecs = (currentDish) => {
     if (!currentDish.paired_items || currentDish.paired_items.length === 0) return [];
     return allDishes.filter(d => currentDish.paired_items.includes(d.id) && d.id !== currentDish.id);
   }
 
   const openDishSheet = (dish) => {
+    setEditingCartItem(null);
     setSelectedDish(dish);
     setCookingRequest('');
     setMainDishQty(1);
@@ -250,7 +276,7 @@ function App() {
 
     setLoading(true);
     try {
-      const finalTableStatus = tableNumber && tableNumber.trim() !== "" ? tableNumber : "Takeaway / Parcel";
+      const finalTableStatus = tableNumber && tableNumber.toString().trim() !== "" ? tableNumber : "Takeaway / Parcel";
 
       const { data, error } = await supabase
         .from('orders')
@@ -310,7 +336,6 @@ function App() {
     return <AdminDashboard />;
   }
 
-  // 🚨 HEX TO RGBA HELPER
   const getRgba = (hex, alpha) => {
     if (!hex || !hex.startsWith('#') || hex.length !== 7) return hex || 'transparent';
     const r = parseInt(hex.slice(1, 3), 16);
@@ -325,15 +350,14 @@ function App() {
     ? getRgba(storeSettings.menu_bg_value || '#f8fafc', currentOpacity) 
     : '#f8fafc';
 
-  // 🚨 NEW LOGIC: Checkout aur Waiter Screen ka background color
   const secondaryPageBgColor = storeSettings.menu_bg_type === 'image' 
-    ? headerBgWithOpacity // Agar image thi, toh header color use karo baaki pages pe
-    : mainBgColorWithOpacity; // Agar color tha, toh wahi color use karo baaki pages pe
+    ? headerBgWithOpacity 
+    : mainBgColorWithOpacity; 
 
   return (
     <div style={{ fontFamily: storeSettings.theme_font }}>
       
-      {/* 1. WELCOME SCREEN (Kept isolated with its own theme) */}
+      {/* 1. WELCOME SCREEN */}
       {view === 'welcome' && (
         <div className="w-full min-h-screen bg-slate-900 flex flex-col justify-end md:justify-center pb-12 md:pb-20 px-6 md:px-12 relative overflow-hidden">
           {storeSettings.welcome_bg_url && (
@@ -357,32 +381,31 @@ function App() {
         </div>
       )}
 
-      {/* 🚨 THE GLOBAL WRAPPER: Background auto-switches based on the active view 🚨 */}
+      {/* 🚨 THE GLOBAL WRAPPER */}
       {view !== 'welcome' && (
         <div 
-          className="w-full min-h-screen relative transition-colors duration-300"
-          style={{ backgroundColor: view === 'menu' ? mainBgColorWithOpacity : secondaryPageBgColor }}
+          className="w-full relative transition-colors duration-300"
+          style={{ backgroundColor: view === 'menu' ? mainBgColorWithOpacity : secondaryPageBgColor, minHeight: `${vh}px` }}
         >
           
-          {/* THE FIXED BACKGROUND IMAGE (🚨 Restricted STRICTLY to 'menu' view) */}
+          {/* THE FIXED BACKGROUND IMAGE (Jitter strictly locked using vh and overscroll hidden) */}
           {view === 'menu' && storeSettings.menu_bg_type === 'image' && storeSettings.menu_bg_value && (
             <div 
               className="fixed top-0 left-0 right-0 z-0 pointer-events-none transition-opacity duration-300"
               style={{
-                bottom: '-150px', 
+                height: '100vh',
+                height: `${vh}px`,
                 backgroundImage: `url(${storeSettings.menu_bg_value})`,
                 backgroundSize: 'cover',
                 backgroundPosition: storeSettings.menu_bg_position || 'center', 
                 backgroundRepeat: 'no-repeat',
-                opacity: currentOpacity,
-                transform: 'translate3d(0,0,0)',
-                WebkitTransform: 'translate3d(0,0,0)'
+                opacity: currentOpacity
               }}
             />
           )}
 
           {/* MAIN CONTENT LAYER */}
-          <div className="relative z-10 min-h-screen flex flex-col">
+          <div className="relative z-10 flex flex-col" style={{ minHeight: `${vh}px` }}>
 
             {/* --- 2. MAIN MENU --- */}
             {view === 'menu' && (
@@ -527,7 +550,7 @@ function App() {
                 </div>
 
                 {cart.length > 0 && (
-                  <div className="fixed bottom-0 left-0 right-0 md:bottom-8 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-xl bg-white md:rounded-[2rem] p-4 border-t border-slate-100 md:border md:shadow-2xl z-40 flex justify-between items-center shadow-[0_-10px_20px_rgba(0,0,0,0.05)] animate-in slide-in-from-bottom-10">
+                  <div className="fixed bottom-0 left-0 right-0 md:bottom-8 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-xl bg-white/90 backdrop-blur-md md:rounded-[2rem] p-4 border-t border-slate-100 md:border md:shadow-2xl z-40 flex justify-between items-center shadow-[0_-10px_20px_rgba(0,0,0,0.05)] animate-in slide-in-from-bottom-10">
                      <div className="pl-2">
                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">{cart.reduce((a,b)=>a+b.qty,0)} Items Added</p>
                        <p className="text-xl font-black text-slate-900 tracking-tight">₹{grandTotal}</p> 
@@ -541,165 +564,168 @@ function App() {
                      </button>
                   </div>
                 )}
+              </>
+            )}
 
-                {selectedDish && (
-                  <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); }}></div>
+            {/* --- BOTTOM SHEET (MENU & CHECKOUT EDIT) --- */}
+            {selectedDish && (
+              <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+                <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); setEditingCartItem(null); }}></div>
+                
+                <div className="relative bg-white w-full md:w-[500px] h-[85vh] md:h-auto md:max-h-[95vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
+                  
+                  <button onClick={() => { setSelectedDish(null); setSheetRecs({}); setEditingCartItem(null); }} className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full backdrop-blur-md">
+                    <X size={20} />
+                  </button>
+
+                  <div className="overflow-y-auto custom-scrollbar flex-1 pb-[140px] md:pb-[160px]">
+                    <div className="w-full h-56 md:h-64 bg-slate-100 relative">
+                      <img src={selectedDish.image_url || `https://source.unsplash.com/600x400/?food,${selectedDish.name}`} className="w-full h-full object-cover" />
+                    </div>
                     
-                    <div className="relative bg-white w-full md:w-[500px] h-[85vh] md:h-auto md:max-h-[95vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
-                      
-                      <button onClick={() => { setSelectedDish(null); setSheetRecs({}); }} className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full backdrop-blur-md">
-                        <X size={20} />
-                      </button>
+                    <div className="p-5 md:p-6">
+                      <div className="flex items-center gap-2 mb-2">
+                         <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
+                         <h2 className="text-xl md:text-2xl font-black text-slate-900">{selectedDish.name}</h2>
+                      </div>
 
-                      <div className="overflow-y-auto custom-scrollbar flex-1 pb-[140px] md:pb-[160px]">
-                        <div className="w-full h-56 md:h-64 bg-slate-100 relative">
-                          <img src={selectedDish.image_url || `https://source.unsplash.com/600x400/?food,${selectedDish.name}`} className="w-full h-full object-cover" />
+                      {selectedDish.tags && selectedDish.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {selectedDish.tags.map((tag, idx) => (
+                            <span key={idx} className="text-[9px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest border border-slate-200">
+                              {tag}
+                            </span>
+                          ))}
                         </div>
-                        
-                        <div className="p-5 md:p-6">
-                          <div className="flex items-center gap-2 mb-2">
-                             <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
-                             <h2 className="text-xl md:text-2xl font-black text-slate-900">{selectedDish.name}</h2>
+                      )}
+
+                      <p className="text-xs md:text-sm text-slate-500 mb-6">{selectedDish.description}</p>
+
+                      {selectedDish.variants && selectedDish.variants.length > 0 && (
+                        <div className="mb-6 md:mb-8">
+                          <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Quantity <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Select Any 1</span></h3>
+                          <div className="space-y-2 md:space-y-3">
+                            {selectedDish.variants.map((variant, idx) => (
+                              <label key={idx} style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` } : {}} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedVariant?.name === variant.name ? '' : 'border-slate-100 bg-white'}`}>
+                                <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
+                                <div className="flex items-center gap-3">
+                                  <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
+                                  <div style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color } : {}} className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${selectedVariant?.name === variant.name ? '' : 'border-slate-300'}`}>
+                                    {selectedVariant?.name === variant.name && <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0"></div>}
+                                  </div>
+                                </div>
+                                <input type="radio" name="variant" className="hidden" checked={selectedVariant?.name === variant.name} onChange={() => setSelectedVariant(variant)} />
+                              </label>
+                            ))}
                           </div>
+                        </div>
+                      )}
 
-                          {selectedDish.tags && selectedDish.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mb-3">
-                              {selectedDish.tags.map((tag, idx) => (
-                                <span key={idx} className="text-[9px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest border border-slate-200">
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                      <div className="mb-6 md:mb-8">
+                        <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-xs md:text-sm flex items-center gap-2"><MessageSquare size={14}/> Add a cooking request</h3>
+                        <textarea 
+                          placeholder="e.g. Don't make it too spicy" 
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 md:p-4 text-xs md:text-sm font-medium text-slate-700 outline-none focus:bg-white transition-all resize-none h-20 md:h-24"
+                          value={cookingRequest}
+                          onChange={(e) => setCookingRequest(e.target.value)}
+                        />
+                      </div>
 
-                          <p className="text-xs md:text-sm text-slate-500 mb-6">{selectedDish.description}</p>
-
-                          {selectedDish.variants && selectedDish.variants.length > 0 && (
-                            <div className="mb-6 md:mb-8">
-                              <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Quantity <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Select Any 1</span></h3>
-                              <div className="space-y-2 md:space-y-3">
-                                {selectedDish.variants.map((variant, idx) => (
-                                  <label key={idx} style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` } : {}} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedVariant?.name === variant.name ? '' : 'border-slate-100 bg-white'}`}>
-                                    <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
-                                    <div className="flex items-center gap-3">
-                                      <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
-                                      <div style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color } : {}} className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${selectedVariant?.name === variant.name ? '' : 'border-slate-300'}`}>
-                                        {selectedVariant?.name === variant.name && <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0"></div>}
-                                      </div>
-                                    </div>
-                                    <input type="radio" name="variant" className="hidden" checked={selectedVariant?.name === variant.name} onChange={() => setSelectedVariant(variant)} />
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="mb-6 md:mb-8">
-                            <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-xs md:text-sm flex items-center gap-2"><MessageSquare size={14}/> Add a cooking request</h3>
-                            <textarea 
-                              placeholder="e.g. Don't make it too spicy" 
-                              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 md:p-4 text-xs md:text-sm font-medium text-slate-700 outline-none focus:bg-white transition-all resize-none h-20 md:h-24"
-                              value={cookingRequest}
-                              onChange={(e) => setCookingRequest(e.target.value)}
-                            />
-                          </div>
-
-                          {getSmartRecs(selectedDish).length > 0 && (
-                            <div>
-                              <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
-                              <div className="flex overflow-x-auto gap-3 md:gap-4 pb-4 no-scrollbar">
-                                {getSmartRecs(selectedDish).map(rec => {
-                                  const hasVariants = rec.variants && rec.variants.length > 0;
-                                  return (
-                                    <div key={rec.id} className="min-w-[160px] md:min-w-[180px] bg-white border-2 border-slate-100 rounded-2xl p-2 md:p-3 shadow-sm shrink-0 flex flex-col">
-                                      <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
-                                      <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-2">{rec.name}</p>
-                                      
-                                      {hasVariants ? (
-                                        <div className="mt-auto flex flex-col gap-1.5 w-full">
-                                          {rec.variants.map((v, i) => {
-                                            const qty = sheetRecs[`${rec.id}-${v.name}`]?.qty || 0;
-                                            return (
-                                              <div key={i} className="flex items-center justify-between text-[9px] md:text-[10px] bg-slate-50 rounded-lg p-1 border border-slate-100">
-                                                <span className="text-slate-700 font-bold pl-1">{v.name} - ₹{v.price}</span>
-                                                {qty > 0 ? (
-                                                  <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-1.5 rounded px-1 border">
-                                                     <button onClick={() => updateSheetRecQty(rec, v, -1)} className="font-black px-1.5">-</button>
-                                                     <span className="font-black">{qty}</span>
-                                                     <button onClick={() => updateSheetRecQty(rec, v, 1)} className="font-black px-1.5">+</button>
-                                                  </div>
-                                                ) : (
-                                                  <button onClick={() => updateSheetRecQty(rec, v, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-2 py-0.5 rounded border font-bold shadow-sm">Add</button>
-                                                )}
+                      {/* Editing mode mein recommendations hide kardenge to avoid clutter */}
+                      {!editingCartItem && getSmartRecs(selectedDish).length > 0 && (
+                        <div>
+                          <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
+                          <div className="flex overflow-x-auto gap-3 md:gap-4 pb-4 no-scrollbar">
+                            {getSmartRecs(selectedDish).map(rec => {
+                              const hasVariants = rec.variants && rec.variants.length > 0;
+                              return (
+                                <div key={rec.id} className="min-w-[160px] md:min-w-[180px] bg-white border-2 border-slate-100 rounded-2xl p-2 md:p-3 shadow-sm shrink-0 flex flex-col">
+                                  <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
+                                  <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-2">{rec.name}</p>
+                                  
+                                  {hasVariants ? (
+                                    <div className="mt-auto flex flex-col gap-1.5 w-full">
+                                      {rec.variants.map((v, i) => {
+                                        const qty = sheetRecs[`${rec.id}-${v.name}`]?.qty || 0;
+                                        return (
+                                          <div key={i} className="flex items-center justify-between text-[9px] md:text-[10px] bg-slate-50 rounded-lg p-1 border border-slate-100">
+                                            <span className="text-slate-700 font-bold pl-1">{v.name} - ₹{v.price}</span>
+                                            {qty > 0 ? (
+                                              <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-1.5 rounded px-1 border">
+                                                 <button onClick={() => updateSheetRecQty(rec, v, -1)} className="font-black px-1.5">-</button>
+                                                 <span className="font-black">{qty}</span>
+                                                 <button onClick={() => updateSheetRecQty(rec, v, 1)} className="font-black px-1.5">+</button>
                                               </div>
-                                            )
-                                          })}
-                                        </div>
-                                      ) : (
-                                        (() => {
-                                          const qty = sheetRecs[`${rec.id}-regular`]?.qty || 0;
-                                          return (
-                                            <div className="flex justify-between items-center mt-auto bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                                              <span className="font-black text-slate-900 text-[10px] pl-1">₹{rec.price}</span>
-                                              {qty > 0 ? (
-                                                <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-2 rounded px-1 border">
-                                                   <button onClick={() => updateSheetRecQty(rec, null, -1)} className="font-black px-1.5">-</button>
-                                                   <span className="font-black text-[10px]">{qty}</span>
-                                                   <button onClick={() => updateSheetRecQty(rec, null, 1)} className="font-black px-1.5">+</button>
-                                                </div>
-                                              ) : (
-                                                <button onClick={() => updateSheetRecQty(rec, null, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-3 py-0.5 rounded border font-bold shadow-sm text-[10px]">Add</button>
-                                              )}
-                                            </div>
-                                          )
-                                        })()
-                                      )}
+                                            ) : (
+                                              <button onClick={() => updateSheetRecQty(rec, v, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-2 py-0.5 rounded border font-bold shadow-sm">Add</button>
+                                            )}
+                                          </div>
+                                        )
+                                      })}
                                     </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-15px_30px_rgba(0,0,0,0.08)]">
-                        <div className="flex items-center justify-between mb-3 px-2">
-                          <span className="font-bold text-slate-800 text-xs md:text-sm">Main Item Quantity</span>
-                          <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1">
-                            <button onClick={() => setMainDishQty(Math.max(1, mainDishQty - 1))} className="font-black text-slate-600 text-lg px-2">-</button>
-                            <span className="text-sm font-black text-slate-800">{mainDishQty}</span>
-                            <button onClick={() => setMainDishQty(mainDishQty + 1)} className="font-black text-slate-600 text-lg px-2">+</button>
+                                  ) : (
+                                    (() => {
+                                      const qty = sheetRecs[`${rec.id}-regular`]?.qty || 0;
+                                      return (
+                                        <div className="flex justify-between items-center mt-auto bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                          <span className="font-black text-slate-900 text-[10px] pl-1">₹{rec.price}</span>
+                                          {qty > 0 ? (
+                                            <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-2 rounded px-1 border">
+                                               <button onClick={() => updateSheetRecQty(rec, null, -1)} className="font-black px-1.5">-</button>
+                                               <span className="font-black text-[10px]">{qty}</span>
+                                               <button onClick={() => updateSheetRecQty(rec, null, 1)} className="font-black px-1.5">+</button>
+                                            </div>
+                                          ) : (
+                                            <button onClick={() => updateSheetRecQty(rec, null, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-3 py-0.5 rounded border font-bold shadow-sm text-[10px]">Add</button>
+                                          )}
+                                        </div>
+                                      )
+                                    })()
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
-
-                        <button 
-                          onClick={() => {
-                            if (selectedDish.variants?.length > 0 && !selectedVariant) {
-                              return alert("Please select Quantity (Half/Full) for the main dish!");
-                            }
-                            addToCart(selectedDish, selectedVariant, cookingRequest, false, mainDishQty);
-                            Object.values(sheetRecs).forEach(recItem => {
-                              addToCart(recItem.dish, recItem.variant, "", false, recItem.qty);
-                            });
-                            setSelectedDish(null);
-                            setSelectedVariant(null);
-                            setCookingRequest('');
-                            setMainDishQty(1);
-                            setSheetRecs({});
-                          }}
-                          disabled={selectedDish.variants?.length > 0 && !selectedVariant}
-                          style={{ backgroundColor: selectedDish.variants?.length > 0 && !selectedVariant ? '#CBD5E1' : storeSettings.theme_color }}
-                          className={`w-full text-white py-3.5 md:py-4 ${storeSettings.theme_button} font-black text-sm uppercase tracking-widest shadow-xl active:scale-95 transition-all`}
-                        >
-                          Add {getSheetTotals().items > 1 ? `${getSheetTotals().items} items` : 'item'} • ₹{getSheetTotals().price}
-                        </button>
-                      </div>
+                      )}
                     </div>
                   </div>
-                )}
-              </>
+
+                  <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-15px_30px_rgba(0,0,0,0.08)]">
+                    <div className="flex items-center justify-between mb-3 px-2">
+                      <span className="font-bold text-slate-800 text-xs md:text-sm">Main Item Quantity</span>
+                      <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1">
+                        <button onClick={() => setMainDishQty(Math.max(1, mainDishQty - 1))} className="font-black text-slate-600 text-lg px-2">-</button>
+                        <span className="text-sm font-black text-slate-800">{mainDishQty}</span>
+                        <button onClick={() => setMainDishQty(mainDishQty + 1)} className="font-black text-slate-600 text-lg px-2">+</button>
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        if (selectedDish.variants?.length > 0 && !selectedVariant) {
+                          return alert("Please select Quantity (Half/Full) for the main dish!");
+                        }
+                        addToCart(selectedDish, selectedVariant, cookingRequest, false, mainDishQty);
+                        Object.values(sheetRecs).forEach(recItem => {
+                          addToCart(recItem.dish, recItem.variant, "", false, recItem.qty);
+                        });
+                        setSelectedDish(null);
+                        setSelectedVariant(null);
+                        setCookingRequest('');
+                        setMainDishQty(1);
+                        setSheetRecs({});
+                        setEditingCartItem(null);
+                      }}
+                      disabled={selectedDish.variants?.length > 0 && !selectedVariant}
+                      style={{ backgroundColor: selectedDish.variants?.length > 0 && !selectedVariant ? '#CBD5E1' : storeSettings.theme_color }}
+                      className={`w-full text-white py-3.5 md:py-4 ${storeSettings.theme_button} font-black text-sm uppercase tracking-widest shadow-xl active:scale-95 transition-all`}
+                    >
+                      {editingCartItem ? 'Update Item' : `Add ${getSheetTotals().items > 1 ? `${getSheetTotals().items} items` : 'item'} • ₹${getSheetTotals().price}`}
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* --- 3. CHECKOUT CART --- */}
@@ -728,6 +754,10 @@ function App() {
                          <div className="flex justify-between items-end mt-2">
                             <div className="flex-1 pr-4 flex flex-col items-start gap-2">
                               {item.cookingRequest && <p style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` }} className="text-[11px] p-2 rounded-lg italic inline-block font-medium">" {item.cookingRequest} "</p>}
+                              {/* 🚨 EDIT BUTTON FIXED 🚨 */}
+                              <button onClick={() => openEditCartItem(item)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-700 flex items-center gap-1 mt-1 transition-colors">
+                                <Edit3 size={10} /> Customize
+                              </button>
                             </div>
                             <div className="flex items-center gap-4 bg-slate-100 rounded-xl px-2 py-1 shrink-0">
                               <button onClick={() => removeFromCart(item.cartItemId)} className="font-black text-slate-600 text-lg px-2">-</button>
@@ -768,7 +798,26 @@ function App() {
 
                   <div className="bg-white p-6 rounded-[2rem] shadow-sm mb-8 border border-slate-100">
                     <label className="text-xs font-black text-slate-400 uppercase tracking-widest block text-center mb-4">Table Number (Optional)</label>
-                    <input type="number" min="1" placeholder="Eg: 5" className="w-full text-center text-4xl font-black bg-slate-50 p-4 rounded-2xl text-slate-900 border-none outline-none mb-3 transition-all" value={tableNumber} onChange={e => setTableNumber(e.target.value)} />
+                    {/* 🚨 TABLE NUMBER FIX (No negatives/decimals/e) 🚨 */}
+                    <input 
+                      type="number" 
+                      min="1" 
+                      step="1"
+                      placeholder="Eg: 5" 
+                      className="w-full text-center text-4xl font-black bg-slate-50 p-4 rounded-2xl text-slate-900 border-none outline-none mb-3 transition-all" 
+                      value={tableNumber} 
+                      onKeyPress={(e) => {
+                        if (e.key === '-' || e.key === 'e' || e.key === '.') {
+                          e.preventDefault();
+                        }
+                      }}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || parseInt(val) > 0) {
+                          setTableNumber(val);
+                        }
+                      }} 
+                    />
                     <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">Leave blank for Takeaway / Parcel</p>
                   </div>
 
@@ -789,7 +838,7 @@ function App() {
                   </div>
                   <h2 className="text-3xl font-serif font-black text-slate-900 mb-2 italic">Show to Waiter</h2>
                   <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-6">
-                    {tableNumber && tableNumber.trim() !== "" ? `Table ${tableNumber}` : 'Takeaway / Parcel'} • {orderId}
+                    {tableNumber && tableNumber.toString().trim() !== "" ? `Table ${tableNumber}` : 'Takeaway / Parcel'} • {orderId}
                   </p>
 
                   <div className="bg-slate-50 rounded-2xl p-5 mb-8 text-left max-h-[40vh] overflow-y-auto border border-slate-100 shadow-inner custom-scrollbar">
