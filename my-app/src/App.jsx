@@ -34,7 +34,6 @@ function App() {
   }, []);
 
   const [selectedDish, setSelectedDish] = useState(null);
-  // 🚨 CHANGED: selectedVariant se selectedVariants (Array) kar diya multi-select ke liye
   const [selectedVariants, setSelectedVariants] = useState([]);
   const [cookingRequest, setCookingRequest] = useState('');
   const [mainDishQty, setMainDishQty] = useState(1); 
@@ -162,7 +161,6 @@ function App() {
     }
   }, [selectedCategory, allDishes]);
 
-  // 🚨 LOGIC FIXED FOR MULTIPLE ADD-ONS
   const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qtyToAdd = 1) => {
     if (qtyToAdd <= 0) return;
     
@@ -227,28 +225,9 @@ function App() {
     setCookingRequest('');
     setMainDishQty(1);
     setSheetRecs({});
-    setSelectedVariants([]); // Start with fresh selection
+    setSelectedVariants([]); 
   };
 
-  const updateSheetRecQty = (dish, variant, change) => {
-    const key = variant ? `${dish.id}-${variant.name}` : `${dish.id}-regular`;
-    setSheetRecs(prev => {
-      const currentQty = prev[key]?.qty || 0;
-      const newQty = currentQty + change;
-      
-      if (newQty <= 0) {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      }
-      return {
-        ...prev,
-        [key]: { dish, variant, qty: newQty }
-      };
-    });
-  };
-
-  // 🚨 DYNAMIC CALCULATION FOR TOTAL
   const getSheetTotals = () => {
     if (!selectedDish) return { items: 0, price: 0 };
     
@@ -404,7 +383,6 @@ function App() {
 
           <div className="relative z-10 flex flex-col" style={{ minHeight: `${vh}px` }}>
 
-            {/* --- 2. MAIN MENU --- */}
             {view === 'menu' && (
               <>
                 <header 
@@ -564,7 +542,6 @@ function App() {
               </>
             )}
 
-            {/* --- 3. CHECKOUT CART --- */}
             {view === 'checkout' && (
               <div className="w-full flex-1 p-4 md:p-8 pb-32 overflow-y-auto relative bg-transparent">
                 <div className="max-w-2xl mx-auto">
@@ -579,7 +556,6 @@ function App() {
                              <div className="mt-0.5 w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm shrink-0"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
                              <div>
                                <span className="font-bold text-slate-800 block">{item.name}</span>
-                               {/* 🚨 CHECKOUT UI FIXED FOR MULTIPLE VARIANTS */}
                                {item.selectedVariants && item.selectedVariants.length > 0 && (
                                  <div className="flex flex-wrap gap-1 mt-1.5">
                                    {item.selectedVariants.map((v, i) => (
@@ -671,7 +647,6 @@ function App() {
               </div>
             )}
 
-            {/* --- 4. WAITER CONFIRMATION SCREEN --- */}
             {view === 'waiter_screen' && (
               <div className="w-full flex-1 p-4 md:p-8 flex flex-col items-center justify-center relative overflow-hidden bg-transparent">
                 
@@ -692,7 +667,6 @@ function App() {
                           <div className="bg-slate-200 text-slate-800 text-xs font-black px-2.5 py-1 rounded shrink-0">{item.qty}x</div>
                           <div>
                             <span className="font-bold text-slate-800 block leading-tight">{item.name}</span>
-                            {/* 🚨 WAITER SCREEN UI FIXED FOR MULTIPLE VARIANTS */}
                             {item.selectedVariants && item.selectedVariants.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1.5">
                                 {item.selectedVariants.map((v, i) => (
@@ -724,7 +698,6 @@ function App() {
               </div>
             )}
             
-            {/* BOTTOM SHEET MODAL */}
             {selectedDish && (
               <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
                 <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); setEditingCartItem(null); }}></div>
@@ -758,25 +731,21 @@ function App() {
 
                       <p className="text-xs md:text-sm text-slate-500 mb-6">{selectedDish.description}</p>
 
-                      {/* 🚨 MULTI-SELECT CHECKBOX LOGIC (WITH BASE ITEM FIXED) */}
                       {selectedDish.variants && selectedDish.variants.length > 0 && (
                         <div className="mb-6 md:mb-8">
                           <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Customize <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Optional Add-ons</span></h3>
                           <div className="space-y-2 md:space-y-3">
                             
-                            {/* BASE ITEM ALWAYS SELECTED & HIGHLIGHTED */}
                             <label style={{ borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` }} className="flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 transition-all">
                               <span className="font-bold text-slate-800 text-sm">Base Item</span>
                               <div className="flex items-center gap-3">
                                 <span className="font-black text-slate-900 text-sm">₹{selectedDish.price}</span>
-                                {/* Checkbox tick visual always on */}
                                 <div style={{ borderColor: storeSettings.theme_color }} className="w-4 h-4 md:w-5 md:h-5 rounded-md border-[1.5px] md:border-2 flex items-center justify-center shrink-0">
                                   <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-sm shrink-0"></div>
                                 </div>
                               </div>
                             </label>
 
-                            {/* DYNAMIC ADD-ONS (TOGGLE ON/OFF) */}
                             {selectedDish.variants.map((variant, idx) => {
                               const isSelected = selectedVariants.some(v => v.name === variant.name);
                               return (
@@ -817,6 +786,7 @@ function App() {
                         />
                       </div>
 
+                      {/* 🚨 RECOMMENDED ITEMS UI FIXED 🚨 */}
                       {!editingCartItem && getSmartRecs(selectedDish).length > 0 && (
                         <div>
                           <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
@@ -828,45 +798,24 @@ function App() {
                                   <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
                                   <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-2">{rec.name}</p>
                                   
-                                  {hasVariants ? (
-                                    <div className="mt-auto flex flex-col gap-1.5 w-full">
-                                      {rec.variants.map((v, i) => {
-                                        const qty = sheetRecs[`${rec.id}-${v.name}`]?.qty || 0;
-                                        return (
-                                          <div key={i} className="flex items-center justify-between text-[9px] md:text-[10px] bg-slate-50 rounded-lg p-1 border border-slate-100">
-                                            <span className="text-slate-700 font-bold pl-1">{v.name} - ₹{Number(rec.price) + Number(v.price)}</span>
-                                            {qty > 0 ? (
-                                              <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-1.5 rounded px-1 border">
-                                                 <button onClick={() => updateSheetRecQty(rec, v, -1)} className="font-black px-1.5">-</button>
-                                                 <span className="font-black">{qty}</span>
-                                                 <button onClick={() => updateSheetRecQty(rec, v, 1)} className="font-black px-1.5">+</button>
-                                              </div>
-                                            ) : (
-                                              <button onClick={() => updateSheetRecQty(rec, v, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-2 py-0.5 rounded border font-bold shadow-sm">Add</button>
-                                            )}
-                                          </div>
-                                        )
-                                      })}
+                                  <div className="flex justify-between items-center mt-auto bg-slate-50 p-2 rounded-xl border border-slate-100">
+                                    <div className="flex flex-col">
+                                      <span className="font-black text-slate-900 text-xs">₹{rec.price}</span>
+                                      {hasVariants && <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Customizable</span>}
                                     </div>
-                                  ) : (
-                                    (() => {
-                                      const qty = sheetRecs[`${rec.id}-regular`]?.qty || 0;
-                                      return (
-                                        <div className="flex justify-between items-center mt-auto bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                                          <span className="font-black text-slate-900 text-[10px] pl-1">₹{rec.price}</span>
-                                          {qty > 0 ? (
-                                            <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-2 rounded px-1 border">
-                                               <button onClick={() => updateSheetRecQty(rec, null, -1)} className="font-black px-1.5">-</button>
-                                               <span className="font-black text-[10px]">{qty}</span>
-                                               <button onClick={() => updateSheetRecQty(rec, null, 1)} className="font-black px-1.5">+</button>
-                                            </div>
-                                          ) : (
-                                            <button onClick={() => updateSheetRecQty(rec, null, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-3 py-0.5 rounded border font-bold shadow-sm text-[10px]">Add</button>
-                                          )}
-                                        </div>
-                                      )
-                                    })()
-                                  )}
+                                    <button 
+                                      onClick={() => {
+                                        // 1. Current main item ko cart mein save kardo taaki data lose na ho
+                                        addToCart(selectedDish, selectedVariants, cookingRequest, false, mainDishQty);
+                                        // 2. Naya recommended item sheet mein khol do taaki user aaram se variants chune
+                                        openDishSheet(rec);
+                                      }} 
+                                      style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` }} 
+                                      className="px-3 py-1.5 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all"
+                                    >
+                                      Add +
+                                    </button>
+                                  </div>
                                 </div>
                               );
                             })}

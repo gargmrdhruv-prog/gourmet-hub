@@ -9,7 +9,8 @@ import {
   LayoutGrid, 
   AlertCircle,
   Loader2,
-  MessageSquare
+  MessageSquare,
+  Plus
 } from 'lucide-react';
 
 const LiveOrders = () => {
@@ -193,12 +194,14 @@ const LiveOrders = () => {
                         <span className="text-xs font-black text-slate-400 italic mt-0.5 shrink-0 pl-2">₹{item.price * item.qty}</span>
                       </div>
                       
-                      {/* Highlight Variants (Half/Full) */}
-                      {item.selectedVariant && (
-                        <div className="ml-8">
-                          <span className="text-[9px] md:text-[10px] font-black text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                            Variant: {item.selectedVariant.name}
-                          </span>
+                      {/* 🚨 FIX: MULTIPLE VARIANTS MAPPED CORRECTLY */}
+                      {item.selectedVariants && item.selectedVariants.length > 0 && (
+                        <div className="ml-8 flex flex-col gap-1 mt-1">
+                          {item.selectedVariants.map((v, i) => (
+                            <span key={i} className="text-[9px] md:text-[10px] font-black text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-md uppercase tracking-wider w-fit flex items-center gap-1">
+                              <Plus size={10} /> {v.name}
+                            </span>
+                          ))}
                         </div>
                       )}
 
