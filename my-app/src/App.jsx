@@ -34,7 +34,8 @@ function App() {
   }, []);
 
   const [selectedDish, setSelectedDish] = useState(null);
-  const [selectedVariant, setSelectedVariant] = useState(null);
+  // 🚨 CHANGED: selectedVariant se selectedVariants (Array) kar diya multi-select ke liye
+  const [selectedVariants, setSelectedVariants] = useState([]);
   const [cookingRequest, setCookingRequest] = useState('');
   const [mainDishQty, setMainDishQty] = useState(1); 
   const [sheetRecs, setSheetRecs] = useState({}); 
@@ -161,13 +162,15 @@ function App() {
     }
   }, [selectedCategory, allDishes]);
 
-  // 🚨 ADD TO CART LOGIC FIXED: Base Price + Variant Price
-  const addToCart = (dish, variant = null, request = "", closeSheet = true, qtyToAdd = 1) => {
+  // 🚨 LOGIC FIXED FOR MULTIPLE ADD-ONS
+  const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qtyToAdd = 1) => {
     if (qtyToAdd <= 0) return;
     
-    // Add variant price to base price if a variant is selected
-    const actualPrice = variant ? Number(dish.price) + Number(variant.price) : Number(dish.price);
-    const cartItemId = variant ? `${dish.id}-${variant.name}` : `${dish.id}-regular`;
+    const variantsTotal = variantsArray.reduce((sum, v) => sum + Number(v.price), 0);
+    const actualPrice = Number(dish.price) + variantsTotal;
+    
+    const variantNames = variantsArray.map(v => v.name).sort().join(' + ');
+    const cartItemId = variantNames ? `${dish.id}-${variantNames}` : `${dish.id}-regular`;
 
     setCart(prevCart => {
       let workingCart = prevCart;
@@ -182,13 +185,13 @@ function App() {
             : i
         );
       } else {
-        return [...workingCart, { ...dish, cartItemId, price: actualPrice, selectedVariant: variant, cookingRequest: request, qty: qtyToAdd }];
+        return [...workingCart, { ...dish, cartItemId, price: actualPrice, selectedVariants: variantsArray, cookingRequest: request, qty: qtyToAdd }];
       }
     });
     
     if (closeSheet) {
       setSelectedDish(null);
-      setSelectedVariant(null);
+      setSelectedVariants([]);
       setCookingRequest('');
       setMainDishQty(1);
       setSheetRecs({});
@@ -207,7 +210,7 @@ function App() {
   const openEditCartItem = (item) => {
     setEditingCartItem(item);
     setSelectedDish(item); 
-    setSelectedVariant(item.selectedVariant || null);
+    setSelectedVariants(item.selectedVariants || []);
     setCookingRequest(item.cookingRequest || '');
     setMainDishQty(item.qty);
     setSheetRecs({}); 
@@ -224,8 +227,7 @@ function App() {
     setCookingRequest('');
     setMainDishQty(1);
     setSheetRecs({});
-    // 🚨 By default, NO variant is selected. It implies "Regular"
-    setSelectedVariant(null);
+    setSelectedVariants([]); // Start with fresh selection
   };
 
   const updateSheetRecQty = (dish, variant, change) => {
@@ -246,11 +248,13 @@ function App() {
     });
   };
 
-  // 🚨 SHEET TOTALS FIXED: Base + Variant
+  // 🚨 DYNAMIC CALCULATION FOR TOTAL
   const getSheetTotals = () => {
     if (!selectedDish) return { items: 0, price: 0 };
     
-    const mainPrice = (selectedVariant ? Number(selectedDish.price) + Number(selectedVariant.price) : Number(selectedDish.price)) * mainDishQty;
+    const variantsTotal = selectedVariants.reduce((sum, v) => sum + Number(v.price), 0);
+    const mainPrice = (Number(selectedDish.price) + variantsTotal) * mainDishQty;
+    
     const recPrice = Object.values(sheetRecs).reduce((sum, item) => sum + (item.variant ? Number(item.dish.price) + Number(item.variant.price) : Number(item.dish.price)) * item.qty, 0);
     const recItems = Object.values(sheetRecs).reduce((sum, item) => sum + item.qty, 0);
     
@@ -355,7 +359,6 @@ function App() {
   return (
     <div style={{ fontFamily: storeSettings.theme_font }}>
       
-      {/* 1. WELCOME SCREEN */}
       {view === 'welcome' && (
         <div className="w-full min-h-screen bg-slate-900 flex flex-col justify-end md:justify-center pb-12 md:pb-20 px-6 md:px-12 relative overflow-hidden">
           {storeSettings.welcome_bg_url && (
@@ -576,7 +579,16 @@ function App() {
                              <div className="mt-0.5 w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm shrink-0"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
                              <div>
                                <span className="font-bold text-slate-800 block">{item.name}</span>
-                               {item.selectedVariant && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">{item.selectedVariant.name}</span>}
+                               {/* 🚨 CHECKOUT UI FIXED FOR MULTIPLE VARIANTS */}
+                               {item.selectedVariants && item.selectedVariants.length > 0 && (
+                                 <div className="flex flex-wrap gap-1 mt-1.5">
+                                   {item.selectedVariants.map((v, i) => (
+                                     <span key={i} className="text-[9px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                       {v.name} (+₹{v.price})
+                                     </span>
+                                   ))}
+                                 </div>
+                               )}
                              </div>
                            </div>
                            <div className="text-right">
@@ -594,7 +606,7 @@ function App() {
                             <div className="flex items-center gap-4 bg-slate-100 rounded-xl px-2 py-1 shrink-0">
                               <button onClick={() => removeFromCart(item.cartItemId)} className="font-black text-slate-600 text-lg px-2">-</button>
                               <span className="text-sm font-black text-slate-800">{item.qty}</span>
-                              <button onClick={() => addToCart(item, item.selectedVariant, item.cookingRequest, false)} className="font-black text-slate-600 text-lg px-2">+</button>
+                              <button onClick={() => addToCart(item, item.selectedVariants || [], item.cookingRequest, false)} className="font-black text-slate-600 text-lg px-2">+</button>
                             </div>
                          </div>
                        </div>
@@ -680,8 +692,17 @@ function App() {
                           <div className="bg-slate-200 text-slate-800 text-xs font-black px-2.5 py-1 rounded shrink-0">{item.qty}x</div>
                           <div>
                             <span className="font-bold text-slate-800 block leading-tight">{item.name}</span>
-                            {item.selectedVariant && <span style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}15` }} className="text-[10px] font-bold px-2 py-0.5 rounded mt-1 inline-block">Variant: {item.selectedVariant.name}</span>}
-                            {item.cookingRequest && <p className="text-[10px] text-red-500 font-bold mt-1 italic">Note: {item.cookingRequest}</p>}
+                            {/* 🚨 WAITER SCREEN UI FIXED FOR MULTIPLE VARIANTS */}
+                            {item.selectedVariants && item.selectedVariants.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {item.selectedVariants.map((v, i) => (
+                                  <span key={i} style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}15` }} className="text-[9px] font-bold px-2 py-0.5 rounded border border-transparent inline-block">
+                                    + {v.name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {item.cookingRequest && <p className="text-[10px] text-red-500 font-bold mt-1.5 italic">Note: {item.cookingRequest}</p>}
                           </div>
                         </div>
                       ))}
@@ -703,7 +724,7 @@ function App() {
               </div>
             )}
             
-            {/* BOTTOM SHEET MOVED OUTSIDE SO IT WORKS ON ALL PAGES */}
+            {/* BOTTOM SHEET MODAL */}
             {selectedDish && (
               <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
                 <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); setEditingCartItem(null); }}></div>
@@ -737,37 +758,51 @@ function App() {
 
                       <p className="text-xs md:text-sm text-slate-500 mb-6">{selectedDish.description}</p>
 
+                      {/* 🚨 MULTI-SELECT CHECKBOX LOGIC (WITH BASE ITEM FIXED) */}
                       {selectedDish.variants && selectedDish.variants.length > 0 && (
                         <div className="mb-6 md:mb-8">
-                          <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Customize <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Select Any 1</span></h3>
+                          <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Customize <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Optional Add-ons</span></h3>
                           <div className="space-y-2 md:space-y-3">
                             
-                            {/* 🚨 THE REGULAR OPTION (BASE PRICE) - NOW OPTIONAL */}
-                            <label style={!selectedVariant ? { borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` } : {}} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${!selectedVariant ? '' : 'border-slate-100 bg-white'}`}>
-                              <span className="font-bold text-slate-800 text-sm">Regular (No Add-ons)</span>
+                            {/* BASE ITEM ALWAYS SELECTED & HIGHLIGHTED */}
+                            <label style={{ borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` }} className="flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 transition-all">
+                              <span className="font-bold text-slate-800 text-sm">Base Item</span>
                               <div className="flex items-center gap-3">
                                 <span className="font-black text-slate-900 text-sm">₹{selectedDish.price}</span>
-                                <div style={!selectedVariant ? { borderColor: storeSettings.theme_color } : {}} className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${!selectedVariant ? '' : 'border-slate-300'}`}>
-                                  {!selectedVariant && <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0"></div>}
+                                {/* Checkbox tick visual always on */}
+                                <div style={{ borderColor: storeSettings.theme_color }} className="w-4 h-4 md:w-5 md:h-5 rounded-md border-[1.5px] md:border-2 flex items-center justify-center shrink-0">
+                                  <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-sm shrink-0"></div>
                                 </div>
                               </div>
-                              <input type="radio" name="variant" className="hidden" checked={!selectedVariant} onChange={() => setSelectedVariant(null)} />
                             </label>
 
-                            {/* DYNAMIC VARIANTS SHOWING ADDED PRICE */}
-                            {selectedDish.variants.map((variant, idx) => (
-                              <label key={idx} style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` } : {}} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedVariant?.name === variant.name ? '' : 'border-slate-100 bg-white'}`}>
-                                <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
-                                <div className="flex items-center gap-3">
-                                  {/* Displays + ₹49 instead of full price to show it's an add-on */}
-                                  <span className="font-black text-slate-900 text-sm">+ ₹{variant.price}</span>
-                                  <div style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color } : {}} className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${selectedVariant?.name === variant.name ? '' : 'border-slate-300'}`}>
-                                    {selectedVariant?.name === variant.name && <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0"></div>}
+                            {/* DYNAMIC ADD-ONS (TOGGLE ON/OFF) */}
+                            {selectedDish.variants.map((variant, idx) => {
+                              const isSelected = selectedVariants.some(v => v.name === variant.name);
+                              return (
+                                <label key={idx} style={isSelected ? { borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` } : {}} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${isSelected ? '' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
+                                  <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-black text-slate-900 text-sm">+ ₹{variant.price}</span>
+                                    <div style={isSelected ? { borderColor: storeSettings.theme_color } : {}} className={`w-4 h-4 md:w-5 md:h-5 rounded-md border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${isSelected ? '' : 'border-slate-300'}`}>
+                                      {isSelected && <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-sm shrink-0"></div>}
+                                    </div>
                                   </div>
-                                </div>
-                                <input type="radio" name="variant" className="hidden" checked={selectedVariant?.name === variant.name} onChange={() => setSelectedVariant(variant)} />
-                              </label>
-                            ))}
+                                  <input 
+                                    type="checkbox" 
+                                    className="hidden" 
+                                    checked={isSelected} 
+                                    onChange={() => {
+                                      if (isSelected) {
+                                        setSelectedVariants(selectedVariants.filter(v => v.name !== variant.name));
+                                      } else {
+                                        setSelectedVariants([...selectedVariants, variant]);
+                                      }
+                                    }} 
+                                  />
+                                </label>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -799,7 +834,6 @@ function App() {
                                         const qty = sheetRecs[`${rec.id}-${v.name}`]?.qty || 0;
                                         return (
                                           <div key={i} className="flex items-center justify-between text-[9px] md:text-[10px] bg-slate-50 rounded-lg p-1 border border-slate-100">
-                                            {/* Showing Total combined price here for clarity */}
                                             <span className="text-slate-700 font-bold pl-1">{v.name} - ₹{Number(rec.price) + Number(v.price)}</span>
                                             {qty > 0 ? (
                                               <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-1.5 rounded px-1 border">
@@ -854,18 +888,17 @@ function App() {
 
                     <button 
                       onClick={() => {
-                        addToCart(selectedDish, selectedVariant, cookingRequest, false, mainDishQty);
+                        addToCart(selectedDish, selectedVariants, cookingRequest, false, mainDishQty);
                         Object.values(sheetRecs).forEach(recItem => {
-                          addToCart(recItem.dish, recItem.variant, "", false, recItem.qty);
+                          addToCart(recItem.dish, recItem.variant ? [recItem.variant] : [], "", false, recItem.qty);
                         });
                         setSelectedDish(null);
-                        setSelectedVariant(null);
+                        setSelectedVariants([]);
                         setCookingRequest('');
                         setMainDishQty(1);
                         setSheetRecs({});
                         setEditingCartItem(null);
                       }}
-                      // 🚨 MANDATORY CHECK REMOVED
                       style={{ backgroundColor: storeSettings.theme_color }}
                       className={`w-full text-white py-3.5 md:py-4 ${storeSettings.theme_button} font-black text-sm uppercase tracking-widest shadow-xl active:scale-95 transition-all`}
                     >
