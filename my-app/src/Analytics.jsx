@@ -56,23 +56,23 @@ const Analytics = () => {
       const prevEnd = new Date(start.getTime() - 1);
       setPrevPeriodText(`${formatDate(prevStart)} - ${formatDate(prevEnd)}`);
 
-      // 🚨 1. Fetch Orders (Current) - Added .eq() LOCK
+      // 🚨 1. Fetch Orders (Current) - Added 'status' to select query
       const { data: currentOrders } = await supabase
         .from('orders')
-        .select('total_bill, created_at')
+        .select('total_bill, created_at, status') 
         .eq('restaurant_id', admin.id)
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
-      // 🚨 2. Fetch Orders (Prev) - Added .eq() LOCK
+      // 🚨 2. Fetch Orders (Prev) - Added 'status' to select query
       const { data: prevOrders } = await supabase
         .from('orders')
-        .select('total_bill')
+        .select('total_bill, status')
         .eq('restaurant_id', admin.id)
         .gte('created_at', prevStart.toISOString())
         .lte('created_at', prevEnd.toISOString());
       
-      // 🚨 3. Fetch Scans - Added .eq() LOCK
+      // 🚨 3. Fetch Scans
       const { data: currentScans } = await supabase
         .from('qr_scans')
         .select('scanned_at')
@@ -80,16 +80,27 @@ const Analytics = () => {
         .gte('scanned_at', start.toISOString())
         .lte('scanned_at', end.toISOString());
 
-      // 3. Calculations
-      const currRev = currentOrders?.reduce((sum, o) => sum + (Number(o.total_bill) || 0), 0) || 0;
-      const prevRev = prevOrders?.reduce((sum, o) => sum + (Number(o.total_bill) || 0), 0) || 0;
+      // 🚨 4. Calculations (CRASH PROOF + FILTERED ONLY FOR 'done' or 'completed')
+      
+      // Filter valid current orders
+      const validCurrentOrders = (currentOrders || []).filter(o => o?.status === 'done' || o?.status === 'completed');
+      const currRev = validCurrentOrders.reduce((sum, o) => sum + (Number(o.total_bill) || 0), 0) || 0;
+      
+      // Filter valid previous orders
+      const validPrevOrders = (prevOrders || []).filter(o => o?.status === 'done' || o?.status === 'completed');
+      const prevRev = validPrevOrders.reduce((sum, o) => sum + (Number(o.total_bill) || 0), 0) || 0;
+      
       let growthPct = prevRev > 0 ? ((currRev - prevRev) / prevRev) * 100 : (currRev > 0 ? 100 : 0);
 
-      setStats({ revenue: currRev, orders: currentOrders?.length || 0, scans: currentScans?.length || 0, growth: Math.round(growthPct) });
+      setStats({ 
+        revenue: currRev, 
+        orders: validCurrentOrders.length, // Only counting completed orders
+        scans: currentScans?.length || 0, 
+        growth: Math.round(growthPct) 
+      });
 
-      // 4. Trend Logic for Graph
+      // 5. Trend Logic for Graph
       const labels = [];
-      const dataPoints = [];
       const dayMap = {};
 
       // Initialize days in range
@@ -103,9 +114,9 @@ const Analytics = () => {
 
       // Fill data based on Active Tab
       if (activeTab === 'revenue') {
-        currentOrders?.forEach(o => { const d = formatDate(new Date(o.created_at)); if(dayMap[d] !== undefined) dayMap[d] += Number(o.total_bill); });
+        validCurrentOrders.forEach(o => { const d = formatDate(new Date(o.created_at)); if(dayMap[d] !== undefined) dayMap[d] += Number(o.total_bill); });
       } else if (activeTab === 'orders') {
-        currentOrders?.forEach(o => { const d = formatDate(new Date(o.created_at)); if(dayMap[d] !== undefined) dayMap[d] += 1; });
+        validCurrentOrders.forEach(o => { const d = formatDate(new Date(o.created_at)); if(dayMap[d] !== undefined) dayMap[d] += 1; });
       } else {
         currentScans?.forEach(s => { const d = formatDate(new Date(s.scanned_at)); if(dayMap[d] !== undefined) dayMap[d] += 1; });
       }
