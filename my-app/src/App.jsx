@@ -310,7 +310,7 @@ function App() {
     return <AdminDashboard />;
   }
 
-  // 🚨 HEX TO RGBA HELPER: Taaki opacity header color aur main background par bhi apply ho
+  // 🚨 HEX TO RGBA HELPER
   const getRgba = (hex, alpha) => {
     if (!hex || !hex.startsWith('#') || hex.length !== 7) return hex || 'transparent';
     const r = parseInt(hex.slice(1, 3), 16);
@@ -325,11 +325,15 @@ function App() {
     ? getRgba(storeSettings.menu_bg_value || '#f8fafc', currentOpacity) 
     : '#f8fafc';
 
-  // --- CUSTOMER VIEWS (WITH DYNAMIC THEME ENVELOPE) ---
+  // 🚨 NEW LOGIC: Checkout aur Waiter Screen ka background color
+  const secondaryPageBgColor = storeSettings.menu_bg_type === 'image' 
+    ? headerBgWithOpacity // Agar image thi, toh header color use karo baaki pages pe
+    : mainBgColorWithOpacity; // Agar color tha, toh wahi color use karo baaki pages pe
+
   return (
     <div style={{ fontFamily: storeSettings.theme_font }}>
       
-      {/* 1. WELCOME SCREEN */}
+      {/* 1. WELCOME SCREEN (Kept isolated with its own theme) */}
       {view === 'welcome' && (
         <div className="w-full min-h-screen bg-slate-900 flex flex-col justify-end md:justify-center pb-12 md:pb-20 px-6 md:px-12 relative overflow-hidden">
           {storeSettings.welcome_bg_url && (
@@ -353,468 +357,472 @@ function App() {
         </div>
       )}
 
-      {/* 2. MAIN MENU */}
-      {view === 'menu' && (
+      {/* 🚨 THE GLOBAL WRAPPER: Background auto-switches based on the active view 🚨 */}
+      {view !== 'welcome' && (
         <div 
-          className="w-full min-h-screen relative pb-32 transition-colors duration-300"
-          style={{ backgroundColor: mainBgColorWithOpacity }}
+          className="w-full min-h-screen relative transition-colors duration-300"
+          style={{ backgroundColor: view === 'menu' ? mainBgColorWithOpacity : secondaryPageBgColor }}
         >
           
-          {/* THE FIXED BACKGROUND IMAGE */}
-          {storeSettings.menu_bg_type === 'image' && storeSettings.menu_bg_value && (
+          {/* THE FIXED BACKGROUND IMAGE (🚨 Restricted STRICTLY to 'menu' view) */}
+          {view === 'menu' && storeSettings.menu_bg_type === 'image' && storeSettings.menu_bg_value && (
             <div 
-              className="fixed inset-0 z-0 pointer-events-none transition-opacity duration-300"
+              className="fixed top-0 left-0 right-0 z-0 pointer-events-none transition-opacity duration-300"
               style={{
+                bottom: '-150px', 
                 backgroundImage: `url(${storeSettings.menu_bg_value})`,
                 backgroundSize: 'cover',
                 backgroundPosition: storeSettings.menu_bg_position || 'center', 
                 backgroundRepeat: 'no-repeat',
-                opacity: currentOpacity
+                opacity: currentOpacity,
+                transform: 'translate3d(0,0,0)',
+                WebkitTransform: 'translate3d(0,0,0)'
               }}
             />
           )}
 
-          {/* CONTENT WRAPPER */}
+          {/* MAIN CONTENT LAYER */}
           <div className="relative z-10 min-h-screen flex flex-col">
 
-            {/* 🚨 HEADER: Added backdrop-blur-md to prevent ugly overlap bleeding */}
-            <header 
-              className="shadow-sm sticky top-0 z-40 border-b border-slate-100/20 backdrop-blur-md transition-colors duration-300"
-              style={{ backgroundColor: headerBgWithOpacity }}
-            >
-              <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 md:gap-5 overflow-hidden">
-                  <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm flex-shrink-0">
-                    {storeSettings.logo ? <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-cover p-1" /> : <span style={{ color: storeSettings.theme_color }} className="font-black text-xl italic">{storeSettings.name.charAt(0)}</span>}
+            {/* --- 2. MAIN MENU --- */}
+            {view === 'menu' && (
+              <>
+                <header 
+                  className="shadow-sm sticky top-0 z-40 border-b border-slate-100/20 backdrop-blur-md transition-colors duration-300"
+                  style={{ backgroundColor: storeSettings.menu_bg_type === 'image' ? headerBgWithOpacity : 'transparent' }}
+                >
+                  <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 md:gap-5 overflow-hidden">
+                      <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm flex-shrink-0">
+                        {storeSettings.logo ? <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-cover p-1" /> : <span style={{ color: storeSettings.theme_color }} className="font-black text-xl italic">{storeSettings.name.charAt(0)}</span>}
+                      </div>
+                      <div className="overflow-hidden">
+                        <h1 className="text-xl md:text-2xl font-black italic text-slate-800 leading-tight truncate">{storeSettings.name}</h1>
+                        {storeSettings.tagline && <p className="text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5 truncate">{storeSettings.tagline}</p>}
+                      </div>
+                    </div>
+                    
+                    {placedOrderItems.length > 0 && (
+                      <button onClick={() => setView('waiter_screen')} className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-2 md:px-4 md:py-2.5 rounded-xl font-black text-[10px] md:text-xs uppercase flex items-center gap-1.5 border border-blue-200 transition-all shrink-0 shadow-sm animate-in zoom-in">
+                        <BellRing size={16} className="animate-pulse" /> <span className="hidden sm:inline">Active Order</span>
+                      </button>
+                    )}
                   </div>
-                  <div className="overflow-hidden">
-                    <h1 className="text-xl md:text-2xl font-black italic text-slate-800 leading-tight truncate">{storeSettings.name}</h1>
-                    {storeSettings.tagline && <p className="text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5 truncate">{storeSettings.tagline}</p>}
-                  </div>
+                </header>
+
+                <div 
+                  className="sticky top-[81px] md:top-[97px] z-30 border-b border-slate-100/20 shadow-sm backdrop-blur-md transition-colors duration-300"
+                  style={{ backgroundColor: storeSettings.menu_bg_type === 'image' ? headerBgWithOpacity : 'transparent' }}
+                >
+                  <nav className="flex gap-3 md:gap-4 overflow-x-auto p-3 md:px-8 md:py-4 max-w-7xl mx-auto no-scrollbar">
+                    {categories.map(cat => (
+                      <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
+                        style={selectedCategory === cat.id ? { backgroundColor: storeSettings.theme_color, color: 'white', borderColor: storeSettings.theme_color } : {}}
+                        className={`px-5 py-2.5 md:py-2 md:px-6 rounded-full text-[11px] md:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 ${selectedCategory === cat.id ? 'shadow-md opacity-100' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 shadow-sm'}`}>
+                        {cat.name}
+                      </button>
+                    ))}
+                  </nav>
                 </div>
-                
-                {placedOrderItems.length > 0 && (
-                  <button onClick={() => setView('waiter_screen')} className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-2 md:px-4 md:py-2.5 rounded-xl font-black text-[10px] md:text-xs uppercase flex items-center gap-1.5 border border-blue-200 transition-all shrink-0 shadow-sm animate-in zoom-in">
-                    <BellRing size={16} className="animate-pulse" /> <span className="hidden sm:inline">Active Order</span>
-                  </button>
-                )}
-              </div>
-            </header>
 
-            {/* 🚨 CATEGORY NAV: Synced with header glass effect */}
-            <div 
-              className="sticky top-[81px] md:top-[97px] z-30 border-b border-slate-100/20 shadow-sm backdrop-blur-md transition-colors duration-300"
-              style={{ backgroundColor: headerBgWithOpacity }}
-            >
-              <nav className="flex gap-3 md:gap-4 overflow-x-auto p-3 md:px-8 md:py-4 max-w-7xl mx-auto no-scrollbar">
-                {categories.map(cat => (
-                  <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
-                    style={selectedCategory === cat.id ? { backgroundColor: storeSettings.theme_color, color: 'white', borderColor: storeSettings.theme_color } : {}}
-                    className={`px-5 py-2.5 md:py-2 md:px-6 rounded-full text-[11px] md:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 ${selectedCategory === cat.id ? 'shadow-md opacity-100' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 shadow-sm'}`}>
-                    {cat.name}
-                  </button>
-                ))}
-              </nav>
-            </div>
+                <div className="max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8 flex-1 pb-32">
+                  {filteredDishes.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center text-center py-20 px-4">
+                      <span className="text-5xl grayscale opacity-50 mb-4">🍽️</span>
+                      <h3 className="text-2xl font-serif font-black text-slate-800 mb-2 italic">Menu is Brewing</h3>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chef is curating dishes for this category.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 md:gap-6">
+                      {filteredDishes.map(dish => {
+                        const cartItemsForDish = cart.filter(i => i.id === dish.id);
+                        const totalQtyInCart = cartItemsForDish.reduce((sum, item) => sum + item.qty, 0);
+                        const isNonVeg = dish.tags?.some(t => t.toLowerCase().includes('non-veg'));
+                        const extraTags = dish.tags?.filter(t => t !== 'Veg 🟢' && t !== 'Non-Veg 🔴' && t !== 'Bestseller ⭐') || [];
 
-            {/* DISH GRID */}
-            <div className="max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8 flex-1">
-              {filteredDishes.length === 0 ? (
-                <div className="flex flex-col items-center justify-center text-center py-20 px-4">
-                  <span className="text-5xl grayscale opacity-50 mb-4">🍽️</span>
-                  <h3 className="text-2xl font-serif font-black text-slate-800 mb-2 italic">Menu is Brewing</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chef is curating dishes for this category.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 md:gap-6">
-                  {filteredDishes.map(dish => {
-                    const cartItemsForDish = cart.filter(i => i.id === dish.id);
-                    const totalQtyInCart = cartItemsForDish.reduce((sum, item) => sum + item.qty, 0);
-                    const isNonVeg = dish.tags?.some(t => t.toLowerCase().includes('non-veg'));
-                    const extraTags = dish.tags?.filter(t => t !== 'Veg 🟢' && t !== 'Non-Veg 🔴' && t !== 'Bestseller ⭐') || [];
-
-                    return (
-                      <div key={dish.id} className="bg-white/95 backdrop-blur-md rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl transition-all flex flex-col">
-                        <div className="w-full h-44 sm:h-48 md:h-52 bg-slate-100 relative cursor-pointer flex-shrink-0" onClick={() => openDishSheet(dish)}>
-                          <img src={dish.image_url || `https://source.unsplash.com/600x400/?food,${dish.name}`} className="w-full h-full object-cover" alt={dish.name} />
-                          {!dish.is_available && (
-                            <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center backdrop-blur-sm">
-                              <span className="text-sm font-black text-white uppercase tracking-widest bg-black/50 px-4 py-2 rounded-lg">Sold Out</span>
-                            </div>
-                          )}
-                          {dish.tags?.some(t => t.toLowerCase().includes('bestseller')) && (
-                            <div style={{ backgroundColor: storeSettings.theme_color }} className="absolute top-3 left-3 md:top-4 md:left-4 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">
-                              ⭐ Bestseller
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="p-4 md:p-5 flex flex-col flex-1">
-                          <div className="flex items-start gap-2 mb-1">
-                            <div className="mt-1 flex-shrink-0">
-                              {isNonVeg ? (
-                                <div className="w-3.5 h-3.5 border-2 border-red-500 flex items-center justify-center rounded-sm"><div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div></div>
-                              ) : (
-                                <div className="w-3.5 h-3.5 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div></div>
+                        return (
+                          <div key={dish.id} className="bg-white/95 backdrop-blur-md rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl transition-all flex flex-col">
+                            <div className="w-full h-44 sm:h-48 md:h-52 bg-slate-100 relative cursor-pointer flex-shrink-0" onClick={() => openDishSheet(dish)}>
+                              <img src={dish.image_url || `https://source.unsplash.com/600x400/?food,${dish.name}`} className="w-full h-full object-cover" alt={dish.name} />
+                              {!dish.is_available && (
+                                <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center backdrop-blur-sm">
+                                  <span className="text-sm font-black text-white uppercase tracking-widest bg-black/50 px-4 py-2 rounded-lg">Sold Out</span>
+                                </div>
+                              )}
+                              {dish.tags?.some(t => t.toLowerCase().includes('bestseller')) && (
+                                <div style={{ backgroundColor: storeSettings.theme_color }} className="absolute top-3 left-3 md:top-4 md:left-4 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">
+                                  ⭐ Bestseller
+                                </div>
                               )}
                             </div>
-                            <h3 className="font-black text-slate-800 text-base md:text-lg leading-tight cursor-pointer" onClick={() => openDishSheet(dish)}>{dish.name}</h3>
+                            
+                            <div className="p-4 md:p-5 flex flex-col flex-1">
+                              <div className="flex items-start gap-2 mb-1">
+                                <div className="mt-1 flex-shrink-0">
+                                  {isNonVeg ? (
+                                    <div className="w-3.5 h-3.5 border-2 border-red-500 flex items-center justify-center rounded-sm"><div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div></div>
+                                  ) : (
+                                    <div className="w-3.5 h-3.5 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div></div>
+                                  )}
+                                </div>
+                                <h3 className="font-black text-slate-800 text-base md:text-lg leading-tight cursor-pointer" onClick={() => openDishSheet(dish)}>{dish.name}</h3>
+                              </div>
+
+                              {extraTags.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-1.5 mb-2 pl-5 md:pl-6">
+                                  {extraTags.map((tag, idx) => (
+                                    <span key={idx} style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}15`, borderColor: `${storeSettings.theme_color}30` }} className="text-[8px] md:text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-widest">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {(dish.rating || dish.order_count) ? (
+                                <div className="flex items-center gap-1.5 mb-3 pl-5 md:pl-6 mt-1">
+                                  {dish.rating && (
+                                    <div className="flex items-center gap-1 bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-[10px] font-black">
+                                      <Star size={10} className="fill-green-700" /> {dish.rating}
+                                    </div>
+                                  )}
+                                  {dish.order_count && (
+                                    <span className="text-[9px] md:text-[10px] font-bold text-slate-400">{dish.order_count}+ orders</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="mb-3"></div> 
+                              )}
+
+                              <div className="flex items-center justify-between mt-auto pl-5 md:pl-6">
+                                <div className="flex flex-col">
+                                  <span className="font-black text-slate-900 text-base md:text-lg">₹{dish.price}</span>
+                                  {dish.variants && dish.variants.length > 0 && <span className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest">Customizable</span>}
+                                </div>
+
+                                {dish.is_available === false ? (
+                                  <button disabled className={`bg-slate-50 text-slate-300 px-4 py-2 ${storeSettings.theme_button} font-black text-[10px] md:text-xs uppercase border border-slate-100`}>Out</button>
+                                ) : totalQtyInCart > 0 ? (
+                                   <div style={{ backgroundColor: `${storeSettings.theme_color}10`, borderColor: `${storeSettings.theme_color}30` }} className={`flex items-center gap-3 md:gap-4 ${storeSettings.theme_button} px-2 py-1 border`}>
+                                      <button onClick={() => removeFromCart(cartItemsForDish[0].cartItemId)} style={{ color: storeSettings.theme_color }} className="font-black text-base md:text-lg px-2">-</button>
+                                      <span style={{ color: storeSettings.theme_color }} className="text-xs md:text-sm font-black">{totalQtyInCart}</span>
+                                      <button onClick={() => openDishSheet(dish)} style={{ color: storeSettings.theme_color }} className="font-black text-base md:text-lg px-2">+</button>
+                                   </div>
+                                ) : (
+                                  <button 
+                                    onClick={() => openDishSheet(dish)} 
+                                    style={{ backgroundColor: storeSettings.theme_color }}
+                                    className={`text-white px-5 md:px-6 py-2 ${storeSettings.theme_button} font-black text-[10px] md:text-xs uppercase tracking-widest transition-all shadow-sm opacity-90 hover:opacity-100`}
+                                  >
+                                    Add +
+                                  </button>
+                                )}
+                              </div>
+                              <p className="text-[10px] md:text-[11px] text-slate-500 font-medium line-clamp-2 mt-3 md:mt-4 pl-5 md:pl-6">{dish.description}</p>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}  
+                </div>
+
+                {cart.length > 0 && (
+                  <div className="fixed bottom-0 left-0 right-0 md:bottom-8 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-xl bg-white md:rounded-[2rem] p-4 border-t border-slate-100 md:border md:shadow-2xl z-40 flex justify-between items-center shadow-[0_-10px_20px_rgba(0,0,0,0.05)] animate-in slide-in-from-bottom-10">
+                     <div className="pl-2">
+                       <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">{cart.reduce((a,b)=>a+b.qty,0)} Items Added</p>
+                       <p className="text-xl font-black text-slate-900 tracking-tight">₹{grandTotal}</p> 
+                     </div>
+                     <button 
+                       onClick={() => setView('checkout')} 
+                       style={{ backgroundColor: storeSettings.theme_color }}
+                       className={`text-white px-8 py-3.5 ${storeSettings.theme_button} font-black text-sm uppercase tracking-widest flex items-center gap-2 shadow-lg`}
+                     >
+                       Next <ChevronRight size={18} />
+                     </button>
+                  </div>
+                )}
+
+                {selectedDish && (
+                  <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); }}></div>
+                    
+                    <div className="relative bg-white w-full md:w-[500px] h-[85vh] md:h-auto md:max-h-[95vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
+                      
+                      <button onClick={() => { setSelectedDish(null); setSheetRecs({}); }} className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full backdrop-blur-md">
+                        <X size={20} />
+                      </button>
+
+                      <div className="overflow-y-auto custom-scrollbar flex-1 pb-[140px] md:pb-[160px]">
+                        <div className="w-full h-56 md:h-64 bg-slate-100 relative">
+                          <img src={selectedDish.image_url || `https://source.unsplash.com/600x400/?food,${selectedDish.name}`} className="w-full h-full object-cover" />
+                        </div>
+                        
+                        <div className="p-5 md:p-6">
+                          <div className="flex items-center gap-2 mb-2">
+                             <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
+                             <h2 className="text-xl md:text-2xl font-black text-slate-900">{selectedDish.name}</h2>
                           </div>
 
-                          {extraTags.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mt-1.5 mb-2 pl-5 md:pl-6">
-                              {extraTags.map((tag, idx) => (
-                                <span key={idx} style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}15`, borderColor: `${storeSettings.theme_color}30` }} className="text-[8px] md:text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-widest">
+                          {selectedDish.tags && selectedDish.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-3">
+                              {selectedDish.tags.map((tag, idx) => (
+                                <span key={idx} className="text-[9px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest border border-slate-200">
                                   {tag}
                                 </span>
                               ))}
                             </div>
                           )}
 
-                          {(dish.rating || dish.order_count) ? (
-                            <div className="flex items-center gap-1.5 mb-3 pl-5 md:pl-6 mt-1">
-                              {dish.rating && (
-                                <div className="flex items-center gap-1 bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-[10px] font-black">
-                                  <Star size={10} className="fill-green-700" /> {dish.rating}
-                                </div>
-                              )}
-                              {dish.order_count && (
-                                <span className="text-[9px] md:text-[10px] font-bold text-slate-400">{dish.order_count}+ orders</span>
-                              )}
+                          <p className="text-xs md:text-sm text-slate-500 mb-6">{selectedDish.description}</p>
+
+                          {selectedDish.variants && selectedDish.variants.length > 0 && (
+                            <div className="mb-6 md:mb-8">
+                              <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Quantity <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Select Any 1</span></h3>
+                              <div className="space-y-2 md:space-y-3">
+                                {selectedDish.variants.map((variant, idx) => (
+                                  <label key={idx} style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` } : {}} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedVariant?.name === variant.name ? '' : 'border-slate-100 bg-white'}`}>
+                                    <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
+                                    <div className="flex items-center gap-3">
+                                      <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
+                                      <div style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color } : {}} className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${selectedVariant?.name === variant.name ? '' : 'border-slate-300'}`}>
+                                        {selectedVariant?.name === variant.name && <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0"></div>}
+                                      </div>
+                                    </div>
+                                    <input type="radio" name="variant" className="hidden" checked={selectedVariant?.name === variant.name} onChange={() => setSelectedVariant(variant)} />
+                                  </label>
+                                ))}
+                              </div>
                             </div>
-                          ) : (
-                            <div className="mb-3"></div> 
                           )}
 
-                          <div className="flex items-center justify-between mt-auto pl-5 md:pl-6">
-                            <div className="flex flex-col">
-                              <span className="font-black text-slate-900 text-base md:text-lg">₹{dish.price}</span>
-                              {dish.variants && dish.variants.length > 0 && <span className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest">Customizable</span>}
-                            </div>
-
-                            {dish.is_available === false ? (
-                              <button disabled className={`bg-slate-50 text-slate-300 px-4 py-2 ${storeSettings.theme_button} font-black text-[10px] md:text-xs uppercase border border-slate-100`}>Out</button>
-                            ) : totalQtyInCart > 0 ? (
-                               <div style={{ backgroundColor: `${storeSettings.theme_color}10`, borderColor: `${storeSettings.theme_color}30` }} className={`flex items-center gap-3 md:gap-4 ${storeSettings.theme_button} px-2 py-1 border`}>
-                                  <button onClick={() => removeFromCart(cartItemsForDish[0].cartItemId)} style={{ color: storeSettings.theme_color }} className="font-black text-base md:text-lg px-2">-</button>
-                                  <span style={{ color: storeSettings.theme_color }} className="text-xs md:text-sm font-black">{totalQtyInCart}</span>
-                                  <button onClick={() => openDishSheet(dish)} style={{ color: storeSettings.theme_color }} className="font-black text-base md:text-lg px-2">+</button>
-                               </div>
-                            ) : (
-                              <button 
-                                onClick={() => openDishSheet(dish)} 
-                                style={{ backgroundColor: storeSettings.theme_color }}
-                                className={`text-white px-5 md:px-6 py-2 ${storeSettings.theme_button} font-black text-[10px] md:text-xs uppercase tracking-widest transition-all shadow-sm opacity-90 hover:opacity-100`}
-                              >
-                                Add +
-                              </button>
-                            )}
+                          <div className="mb-6 md:mb-8">
+                            <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-xs md:text-sm flex items-center gap-2"><MessageSquare size={14}/> Add a cooking request</h3>
+                            <textarea 
+                              placeholder="e.g. Don't make it too spicy" 
+                              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 md:p-4 text-xs md:text-sm font-medium text-slate-700 outline-none focus:bg-white transition-all resize-none h-20 md:h-24"
+                              value={cookingRequest}
+                              onChange={(e) => setCookingRequest(e.target.value)}
+                            />
                           </div>
-                          <p className="text-[10px] md:text-[11px] text-slate-500 font-medium line-clamp-2 mt-3 md:mt-4 pl-5 md:pl-6">{dish.description}</p>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}  
-            </div>
-          </div>
 
-          {cart.length > 0 && (
-            <div className="fixed bottom-0 left-0 right-0 md:bottom-8 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-xl bg-white md:rounded-[2rem] p-4 border-t border-slate-100 md:border md:shadow-2xl z-40 flex justify-between items-center shadow-[0_-10px_20px_rgba(0,0,0,0.05)] animate-in slide-in-from-bottom-10">
-               <div className="pl-2">
-                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">{cart.reduce((a,b)=>a+b.qty,0)} Items Added</p>
-                 <p className="text-xl font-black text-slate-900 tracking-tight">₹{grandTotal}</p> 
-               </div>
-               <button 
-                 onClick={() => setView('checkout')} 
-                 style={{ backgroundColor: storeSettings.theme_color }}
-                 className={`text-white px-8 py-3.5 ${storeSettings.theme_button} font-black text-sm uppercase tracking-widest flex items-center gap-2 shadow-lg`}
-               >
-                 Next <ChevronRight size={18} />
-               </button>
-            </div>
-          )}
-
-          {/* BOTTOM SHEET */}
-          {selectedDish && (
-            <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
-              <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedDish(null); setSheetRecs({}); }}></div>
-              
-              <div className="relative bg-white w-full md:w-[500px] h-[85vh] md:h-auto md:max-h-[95vh] rounded-t-3xl md:rounded-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 shadow-2xl">
-                
-                <button onClick={() => { setSelectedDish(null); setSheetRecs({}); }} className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full backdrop-blur-md">
-                  <X size={20} />
-                </button>
-
-                <div className="overflow-y-auto custom-scrollbar flex-1 pb-[140px] md:pb-[160px]">
-                  <div className="w-full h-56 md:h-64 bg-slate-100 relative">
-                    <img src={selectedDish.image_url || `https://source.unsplash.com/600x400/?food,${selectedDish.name}`} className="w-full h-full object-cover" />
-                  </div>
-                  
-                  <div className="p-5 md:p-6">
-                    <div className="flex items-center gap-2 mb-2">
-                       <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
-                       <h2 className="text-xl md:text-2xl font-black text-slate-900">{selectedDish.name}</h2>
-                    </div>
-
-                    {selectedDish.tags && selectedDish.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-3">
-                        {selectedDish.tags.map((tag, idx) => (
-                          <span key={idx} className="text-[9px] font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded uppercase tracking-widest border border-slate-200">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    <p className="text-xs md:text-sm text-slate-500 mb-6">{selectedDish.description}</p>
-
-                    {selectedDish.variants && selectedDish.variants.length > 0 && (
-                      <div className="mb-6 md:mb-8">
-                        <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Quantity <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Select Any 1</span></h3>
-                        <div className="space-y-2 md:space-y-3">
-                          {selectedDish.variants.map((variant, idx) => (
-                            <label key={idx} style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` } : {}} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedVariant?.name === variant.name ? '' : 'border-slate-100 bg-white'}`}>
-                              <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
-                              <div className="flex items-center gap-3">
-                                <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
-                                <div style={selectedVariant?.name === variant.name ? { borderColor: storeSettings.theme_color } : {}} className={`w-4 h-4 md:w-5 md:h-5 rounded-full border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${selectedVariant?.name === variant.name ? '' : 'border-slate-300'}`}>
-                                  {selectedVariant?.name === variant.name && <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full shrink-0"></div>}
-                                </div>
-                              </div>
-                              <input type="radio" name="variant" className="hidden" checked={selectedVariant?.name === variant.name} onChange={() => setSelectedVariant(variant)} />
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="mb-6 md:mb-8">
-                      <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-xs md:text-sm flex items-center gap-2"><MessageSquare size={14}/> Add a cooking request</h3>
-                      <textarea 
-                        placeholder="e.g. Don't make it too spicy" 
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 md:p-4 text-xs md:text-sm font-medium text-slate-700 outline-none focus:bg-white transition-all resize-none h-20 md:h-24"
-                        value={cookingRequest}
-                        onChange={(e) => setCookingRequest(e.target.value)}
-                      />
-                    </div>
-
-                    {getSmartRecs(selectedDish).length > 0 && (
-                      <div>
-                        <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
-                        <div className="flex overflow-x-auto gap-3 md:gap-4 pb-4 no-scrollbar">
-                          {getSmartRecs(selectedDish).map(rec => {
-                            const hasVariants = rec.variants && rec.variants.length > 0;
-                            return (
-                              <div key={rec.id} className="min-w-[160px] md:min-w-[180px] bg-white border-2 border-slate-100 rounded-2xl p-2 md:p-3 shadow-sm shrink-0 flex flex-col">
-                                <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
-                                <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-2">{rec.name}</p>
-                                
-                                {hasVariants ? (
-                                  <div className="mt-auto flex flex-col gap-1.5 w-full">
-                                    {rec.variants.map((v, i) => {
-                                      const qty = sheetRecs[`${rec.id}-${v.name}`]?.qty || 0;
-                                      return (
-                                        <div key={i} className="flex items-center justify-between text-[9px] md:text-[10px] bg-slate-50 rounded-lg p-1 border border-slate-100">
-                                          <span className="text-slate-700 font-bold pl-1">{v.name} - ₹{v.price}</span>
-                                          {qty > 0 ? (
-                                            <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-1.5 rounded px-1 border">
-                                               <button onClick={() => updateSheetRecQty(rec, v, -1)} className="font-black px-1.5">-</button>
-                                               <span className="font-black">{qty}</span>
-                                               <button onClick={() => updateSheetRecQty(rec, v, 1)} className="font-black px-1.5">+</button>
-                                            </div>
-                                          ) : (
-                                            <button onClick={() => updateSheetRecQty(rec, v, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-2 py-0.5 rounded border font-bold shadow-sm">Add</button>
-                                          )}
+                          {getSmartRecs(selectedDish).length > 0 && (
+                            <div>
+                              <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
+                              <div className="flex overflow-x-auto gap-3 md:gap-4 pb-4 no-scrollbar">
+                                {getSmartRecs(selectedDish).map(rec => {
+                                  const hasVariants = rec.variants && rec.variants.length > 0;
+                                  return (
+                                    <div key={rec.id} className="min-w-[160px] md:min-w-[180px] bg-white border-2 border-slate-100 rounded-2xl p-2 md:p-3 shadow-sm shrink-0 flex flex-col">
+                                      <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
+                                      <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-2">{rec.name}</p>
+                                      
+                                      {hasVariants ? (
+                                        <div className="mt-auto flex flex-col gap-1.5 w-full">
+                                          {rec.variants.map((v, i) => {
+                                            const qty = sheetRecs[`${rec.id}-${v.name}`]?.qty || 0;
+                                            return (
+                                              <div key={i} className="flex items-center justify-between text-[9px] md:text-[10px] bg-slate-50 rounded-lg p-1 border border-slate-100">
+                                                <span className="text-slate-700 font-bold pl-1">{v.name} - ₹{v.price}</span>
+                                                {qty > 0 ? (
+                                                  <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-1.5 rounded px-1 border">
+                                                     <button onClick={() => updateSheetRecQty(rec, v, -1)} className="font-black px-1.5">-</button>
+                                                     <span className="font-black">{qty}</span>
+                                                     <button onClick={() => updateSheetRecQty(rec, v, 1)} className="font-black px-1.5">+</button>
+                                                  </div>
+                                                ) : (
+                                                  <button onClick={() => updateSheetRecQty(rec, v, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-2 py-0.5 rounded border font-bold shadow-sm">Add</button>
+                                                )}
+                                              </div>
+                                            )
+                                          })}
                                         </div>
-                                      )
-                                    })}
-                                  </div>
-                                ) : (
-                                  (() => {
-                                    const qty = sheetRecs[`${rec.id}-regular`]?.qty || 0;
-                                    return (
-                                      <div className="flex justify-between items-center mt-auto bg-slate-50 p-1.5 rounded-lg border border-slate-100">
-                                        <span className="font-black text-slate-900 text-[10px] pl-1">₹{rec.price}</span>
-                                        {qty > 0 ? (
-                                          <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-2 rounded px-1 border">
-                                             <button onClick={() => updateSheetRecQty(rec, null, -1)} className="font-black px-1.5">-</button>
-                                             <span className="font-black text-[10px]">{qty}</span>
-                                             <button onClick={() => updateSheetRecQty(rec, null, 1)} className="font-black px-1.5">+</button>
-                                          </div>
-                                        ) : (
-                                          <button onClick={() => updateSheetRecQty(rec, null, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-3 py-0.5 rounded border font-bold shadow-sm text-[10px]">Add</button>
-                                        )}
-                                      </div>
-                                    )
-                                  })()
-                                )}
+                                      ) : (
+                                        (() => {
+                                          const qty = sheetRecs[`${rec.id}-regular`]?.qty || 0;
+                                          return (
+                                            <div className="flex justify-between items-center mt-auto bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                              <span className="font-black text-slate-900 text-[10px] pl-1">₹{rec.price}</span>
+                                              {qty > 0 ? (
+                                                <div style={{ backgroundColor: `${storeSettings.theme_color}10`, color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}30` }} className="flex items-center gap-2 rounded px-1 border">
+                                                   <button onClick={() => updateSheetRecQty(rec, null, -1)} className="font-black px-1.5">-</button>
+                                                   <span className="font-black text-[10px]">{qty}</span>
+                                                   <button onClick={() => updateSheetRecQty(rec, null, 1)} className="font-black px-1.5">+</button>
+                                                </div>
+                                              ) : (
+                                                <button onClick={() => updateSheetRecQty(rec, null, 1)} style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}40` }} className="bg-white px-3 py-0.5 rounded border font-bold shadow-sm text-[10px]">Add</button>
+                                              )}
+                                            </div>
+                                          )
+                                        })()
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            );
-                          })}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    )}
-                  </div>
-                </div>
 
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-15px_30px_rgba(0,0,0,0.08)]">
-                  <div className="flex items-center justify-between mb-3 px-2">
-                    <span className="font-bold text-slate-800 text-xs md:text-sm">Main Item Quantity</span>
-                    <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1">
-                      <button onClick={() => setMainDishQty(Math.max(1, mainDishQty - 1))} className="font-black text-slate-600 text-lg px-2">-</button>
-                      <span className="text-sm font-black text-slate-800">{mainDishQty}</span>
-                      <button onClick={() => setMainDishQty(mainDishQty + 1)} className="font-black text-slate-600 text-lg px-2">+</button>
+                      <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 shadow-[0_-15px_30px_rgba(0,0,0,0.08)]">
+                        <div className="flex items-center justify-between mb-3 px-2">
+                          <span className="font-bold text-slate-800 text-xs md:text-sm">Main Item Quantity</span>
+                          <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1">
+                            <button onClick={() => setMainDishQty(Math.max(1, mainDishQty - 1))} className="font-black text-slate-600 text-lg px-2">-</button>
+                            <span className="text-sm font-black text-slate-800">{mainDishQty}</span>
+                            <button onClick={() => setMainDishQty(mainDishQty + 1)} className="font-black text-slate-600 text-lg px-2">+</button>
+                          </div>
+                        </div>
+
+                        <button 
+                          onClick={() => {
+                            if (selectedDish.variants?.length > 0 && !selectedVariant) {
+                              return alert("Please select Quantity (Half/Full) for the main dish!");
+                            }
+                            addToCart(selectedDish, selectedVariant, cookingRequest, false, mainDishQty);
+                            Object.values(sheetRecs).forEach(recItem => {
+                              addToCart(recItem.dish, recItem.variant, "", false, recItem.qty);
+                            });
+                            setSelectedDish(null);
+                            setSelectedVariant(null);
+                            setCookingRequest('');
+                            setMainDishQty(1);
+                            setSheetRecs({});
+                          }}
+                          disabled={selectedDish.variants?.length > 0 && !selectedVariant}
+                          style={{ backgroundColor: selectedDish.variants?.length > 0 && !selectedVariant ? '#CBD5E1' : storeSettings.theme_color }}
+                          className={`w-full text-white py-3.5 md:py-4 ${storeSettings.theme_button} font-black text-sm uppercase tracking-widest shadow-xl active:scale-95 transition-all`}
+                        >
+                          Add {getSheetTotals().items > 1 ? `${getSheetTotals().items} items` : 'item'} • ₹{getSheetTotals().price}
+                        </button>
+                      </div>
                     </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* --- 3. CHECKOUT CART --- */}
+            {view === 'checkout' && (
+              <div className="w-full flex-1 p-4 md:p-8 pb-32 overflow-y-auto relative bg-transparent">
+                <div className="max-w-2xl mx-auto">
+                  <button onClick={() => setView('menu')} className="flex items-center gap-1 text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6 transition-all drop-shadow-sm"><ChevronLeft size={16}/> Back to Menu</button>
+                  <h2 className="text-3xl font-black text-slate-900 mb-8 italic tracking-tighter drop-shadow-sm">Your Order</h2>
+                  
+                  <div className="space-y-4 mb-4">
+                     {cart.map(item => (
+                       <div key={item.cartItemId} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3">
+                         <div className="flex justify-between items-start">
+                           <div className="flex items-start gap-3">
+                             <div className="mt-0.5 w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm shrink-0"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
+                             <div>
+                               <span className="font-bold text-slate-800 block">{item.name}</span>
+                               {item.selectedVariant && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">{item.selectedVariant.name}</span>}
+                             </div>
+                           </div>
+                           <div className="text-right">
+                             <span className="font-black text-slate-900 block text-lg">₹{item.price * item.qty}</span>
+                           </div>
+                         </div>
+                         
+                         <div className="flex justify-between items-end mt-2">
+                            <div className="flex-1 pr-4 flex flex-col items-start gap-2">
+                              {item.cookingRequest && <p style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` }} className="text-[11px] p-2 rounded-lg italic inline-block font-medium">" {item.cookingRequest} "</p>}
+                            </div>
+                            <div className="flex items-center gap-4 bg-slate-100 rounded-xl px-2 py-1 shrink-0">
+                              <button onClick={() => removeFromCart(item.cartItemId)} className="font-black text-slate-600 text-lg px-2">-</button>
+                              <span className="text-sm font-black text-slate-800">{item.qty}</span>
+                              <button onClick={() => addToCart(item, item.selectedVariant, item.cookingRequest, false)} className="font-black text-slate-600 text-lg px-2">+</button>
+                            </div>
+                         </div>
+                       </div>
+                     ))}
                   </div>
 
                   <button 
-                    onClick={() => {
-                      if (selectedDish.variants?.length > 0 && !selectedVariant) {
-                        return alert("Please select Quantity (Half/Full) for the main dish!");
-                      }
-                      addToCart(selectedDish, selectedVariant, cookingRequest, false, mainDishQty);
-                      Object.values(sheetRecs).forEach(recItem => {
-                        addToCart(recItem.dish, recItem.variant, "", false, recItem.qty);
-                      });
-                      setSelectedDish(null);
-                      setSelectedVariant(null);
-                      setCookingRequest('');
-                      setMainDishQty(1);
-                      setSheetRecs({});
-                    }}
-                    disabled={selectedDish.variants?.length > 0 && !selectedVariant}
-                    style={{ backgroundColor: selectedDish.variants?.length > 0 && !selectedVariant ? '#CBD5E1' : storeSettings.theme_color }}
-                    className={`w-full text-white py-3.5 md:py-4 ${storeSettings.theme_button} font-black text-sm uppercase tracking-widest shadow-xl active:scale-95 transition-all`}
+                    onClick={() => setView('menu')} 
+                    style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}50`, backgroundColor: `${storeSettings.theme_color}10` }}
+                    className={`w-full border-2 border-dashed py-4 ${storeSettings.theme_button} font-black text-xs uppercase tracking-widest flex justify-center items-center gap-2 mb-8 shadow-sm`}
                   >
-                    Add {getSheetTotals().items > 1 ? `${getSheetTotals().items} items` : 'item'} • ₹{getSheetTotals().price}
+                     <Plus size={16} /> Add More Items
+                  </button>
+
+                  <div className="bg-slate-900 text-white p-6 md:p-8 rounded-[2rem] shadow-xl mb-8">
+                    <div className="space-y-3 mb-6 text-sm font-medium text-slate-300 border-b border-slate-700 pb-6">
+                      <div className="flex justify-between items-center">
+                        <span>Item Total</span>
+                        <span>₹{subtotal.toFixed(2)}</span>
+                      </div>
+                      {taxBreakdown.map((tax, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-xs text-slate-400">
+                          <span>{tax.name} ({tax.rate}%)</span>
+                          <span>+ ₹{tax.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-black tracking-widest uppercase text-sm">Grand Total</span>
+                      <span style={{ color: storeSettings.theme_color }} className="text-3xl font-black italic">₹{grandTotal}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-[2rem] shadow-sm mb-8 border border-slate-100">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest block text-center mb-4">Table Number (Optional)</label>
+                    <input type="number" min="1" placeholder="Eg: 5" className="w-full text-center text-4xl font-black bg-slate-50 p-4 rounded-2xl text-slate-900 border-none outline-none mb-3 transition-all" value={tableNumber} onChange={e => setTableNumber(e.target.value)} />
+                    <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">Leave blank for Takeaway / Parcel</p>
+                  </div>
+
+                  <button onClick={handleCallWaiter} disabled={loading} className={`w-full bg-slate-900 text-white py-5 ${storeSettings.theme_button} font-black text-sm shadow-xl uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-black active:scale-95 transition-all disabled:opacity-50`}>
+                    {loading ? <Loader2 className="animate-spin" size={24} /> : <><BellRing size={20}/> Call Waiter To Confirm</>}
                   </button>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
 
-      {/* 3. CHECKOUT CART */}
-      {view === 'checkout' && (
-        <div className="w-full min-h-screen bg-slate-50 p-4 md:p-8 pb-32 overflow-y-auto relative">
-          <div className="max-w-2xl mx-auto">
-            <button onClick={() => setView('menu')} className="flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 transition-all"><ChevronLeft size={14}/> Back to Menu</button>
-            <h2 className="text-3xl font-black text-slate-900 mb-8 italic tracking-tighter">Your Order</h2>
-            
-            <div className="space-y-4 mb-4">
-               {cart.map(item => (
-                 <div key={item.cartItemId} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3">
-                   <div className="flex justify-between items-start">
-                     <div className="flex items-start gap-3">
-                       <div className="mt-0.5 w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm shrink-0"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
-                       <div>
-                         <span className="font-bold text-slate-800 block">{item.name}</span>
-                         {item.selectedVariant && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">{item.selectedVariant.name}</span>}
-                       </div>
-                     </div>
-                     <div className="text-right">
-                       <span className="font-black text-slate-900 block text-lg">₹{item.price * item.qty}</span>
-                     </div>
-                   </div>
-                   
-                   <div className="flex justify-between items-end mt-2">
-                      <div className="flex-1 pr-4 flex flex-col items-start gap-2">
-                        {item.cookingRequest && <p style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` }} className="text-[11px] p-2 rounded-lg italic inline-block font-medium">" {item.cookingRequest} "</p>}
-                      </div>
-                      <div className="flex items-center gap-4 bg-slate-100 rounded-xl px-2 py-1 shrink-0">
-                        <button onClick={() => removeFromCart(item.cartItemId)} className="font-black text-slate-600 text-lg px-2">-</button>
-                        <span className="text-sm font-black text-slate-800">{item.qty}</span>
-                        <button onClick={() => addToCart(item, item.selectedVariant, item.cookingRequest, false)} className="font-black text-slate-600 text-lg px-2">+</button>
-                      </div>
-                   </div>
-                 </div>
-               ))}
-            </div>
-
-            <button 
-              onClick={() => setView('menu')} 
-              style={{ color: storeSettings.theme_color, borderColor: `${storeSettings.theme_color}50`, backgroundColor: `${storeSettings.theme_color}10` }}
-              className={`w-full border-2 border-dashed py-4 ${storeSettings.theme_button} font-black text-xs uppercase tracking-widest flex justify-center items-center gap-2 mb-8 shadow-sm`}
-            >
-               <Plus size={16} /> Add More Items
-            </button>
-
-            <div className="bg-slate-900 text-white p-6 md:p-8 rounded-[2rem] shadow-xl mb-8">
-              <div className="space-y-3 mb-6 text-sm font-medium text-slate-300 border-b border-slate-700 pb-6">
-                <div className="flex justify-between items-center">
-                  <span>Item Total</span>
-                  <span>₹{subtotal.toFixed(2)}</span>
-                </div>
-                {taxBreakdown.map((tax, idx) => (
-                  <div key={idx} className="flex justify-between items-center text-xs text-slate-400">
-                    <span>{tax.name} ({tax.rate}%)</span>
-                    <span>+ ₹{tax.amount.toFixed(2)}</span>
+            {/* --- 4. WAITER CONFIRMATION SCREEN --- */}
+            {view === 'waiter_screen' && (
+              <div className="w-full flex-1 p-4 md:p-8 flex flex-col items-center justify-center relative overflow-hidden bg-transparent">
+                
+                <div className="bg-white w-full max-w-md rounded-[3rem] p-8 text-center shadow-2xl relative z-10">
+                  <div style={{ backgroundColor: `${storeSettings.theme_color}20`, color: storeSettings.theme_color }} className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-6">
+                    <BellRing size={32} />
                   </div>
-                ))}
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-black tracking-widest uppercase text-sm">Grand Total</span>
-                <span style={{ color: storeSettings.theme_color }} className="text-3xl font-black italic">₹{grandTotal}</span>
-              </div>
-            </div>
+                  <h2 className="text-3xl font-serif font-black text-slate-900 mb-2 italic">Show to Waiter</h2>
+                  <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-6">
+                    {tableNumber && tableNumber.trim() !== "" ? `Table ${tableNumber}` : 'Takeaway / Parcel'} • {orderId}
+                  </p>
 
-            <div className="bg-white p-6 rounded-[2rem] shadow-sm mb-8 border border-slate-100">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest block text-center mb-4">Table Number (Optional)</label>
-              <input type="number" min="1" placeholder="Eg: 5" className="w-full text-center text-4xl font-black bg-slate-50 p-4 rounded-2xl text-slate-900 border-none outline-none mb-3 transition-all" value={tableNumber} onChange={e => setTableNumber(e.target.value)} />
-              <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">Leave blank for Takeaway / Parcel</p>
-            </div>
-
-            <button onClick={handleCallWaiter} disabled={loading} className={`w-full bg-slate-900 text-white py-5 ${storeSettings.theme_button} font-black text-sm shadow-xl uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-black active:scale-95 transition-all disabled:opacity-50`}>
-              {loading ? <Loader2 className="animate-spin" size={24} /> : <><BellRing size={20}/> Call Waiter To Confirm</>}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 4. WAITER CONFIRMATION SCREEN */}
-      {view === 'waiter_screen' && (
-        <div className="w-full min-h-screen bg-slate-900 p-4 md:p-8 flex flex-col items-center justify-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=1200')] bg-cover opacity-10 blur-sm"></div>
-          
-          <div className="bg-white w-full max-w-md rounded-[3rem] p-8 text-center shadow-2xl relative z-10">
-            <div style={{ backgroundColor: `${storeSettings.theme_color}20`, color: storeSettings.theme_color }} className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-6">
-              <BellRing size={32} />
-            </div>
-            <h2 className="text-3xl font-serif font-black text-slate-900 mb-2 italic">Show to Waiter</h2>
-            <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-6">
-              {tableNumber && tableNumber.trim() !== "" ? `Table ${tableNumber}` : 'Takeaway / Parcel'} • {orderId}
-            </p>
-
-            <div className="bg-slate-50 rounded-2xl p-5 mb-8 text-left max-h-[40vh] overflow-y-auto border border-slate-100 shadow-inner custom-scrollbar">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 border-b pb-2">Items to confirm</p>
-              <div className="space-y-4">
-                {placedOrderItems.map((item, idx) => (
-                  <div key={idx} className="flex gap-3 items-start border-b border-slate-100 last:border-0 pb-3 last:pb-0">
-                    <div className="bg-slate-200 text-slate-800 text-xs font-black px-2.5 py-1 rounded shrink-0">{item.qty}x</div>
-                    <div>
-                      <span className="font-bold text-slate-800 block leading-tight">{item.name}</span>
-                      {item.selectedVariant && <span style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}15` }} className="text-[10px] font-bold px-2 py-0.5 rounded mt-1 inline-block">Variant: {item.selectedVariant.name}</span>}
-                      {item.cookingRequest && <p className="text-[10px] text-red-500 font-bold mt-1 italic">Note: {item.cookingRequest}</p>}
+                  <div className="bg-slate-50 rounded-2xl p-5 mb-8 text-left max-h-[40vh] overflow-y-auto border border-slate-100 shadow-inner custom-scrollbar">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 border-b pb-2">Items to confirm</p>
+                    <div className="space-y-4">
+                      {placedOrderItems.map((item, idx) => (
+                        <div key={idx} className="flex gap-3 items-start border-b border-slate-100 last:border-0 pb-3 last:pb-0">
+                          <div className="bg-slate-200 text-slate-800 text-xs font-black px-2.5 py-1 rounded shrink-0">{item.qty}x</div>
+                          <div>
+                            <span className="font-bold text-slate-800 block leading-tight">{item.name}</span>
+                            {item.selectedVariant && <span style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}15` }} className="text-[10px] font-bold px-2 py-0.5 rounded mt-1 inline-block">Variant: {item.selectedVariant.name}</span>}
+                            {item.cookingRequest && <p className="text-[10px] text-red-500 font-bold mt-1 italic">Note: {item.cookingRequest}</p>}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+
+                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-6 leading-relaxed">
+                    Your order has been sent to the kitchen display.<br/> Waiter will confirm it shortly.
+                  </p>
+
+                  <button onClick={() => setView('menu')} className={`w-full bg-slate-100 text-slate-600 py-4 ${storeSettings.theme_button} font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all mb-3`}>
+                    Add More Items
+                  </button>
+                  
+                  <button onClick={clearSessionAndStartNew} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-red-500 transition-all">
+                    Clear Session & Start Fresh
+                  </button>
+                </div>
               </div>
-            </div>
-
-            <p className="text-[10px] text-slate-400 font-bold uppercase mb-6 leading-relaxed">
-              Your order has been sent to the kitchen display.<br/> Waiter will confirm it shortly.
-            </p>
-
-            <button onClick={() => setView('menu')} className={`w-full bg-slate-100 text-slate-600 py-4 ${storeSettings.theme_button} font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all mb-3`}>
-              Add More Items
-            </button>
+            )}
             
-            <button onClick={clearSessionAndStartNew} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-red-500 transition-all">
-              Clear Session & Start Fresh
-            </button>
           </div>
         </div>
       )}
