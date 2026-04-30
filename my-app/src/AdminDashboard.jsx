@@ -76,13 +76,14 @@ const AdminDashboard = () => {
         .eq('restaurant_id', restId); 
 
       const completedOrders = todayOrders?.filter(o => o.status === 'completed') || [];
-      const totalRev = completedOrders.reduce((acc, curr) => acc + Number(curr.total_bill), 0);
-      const orderCount = todayOrders?.length || 0;
+const totalRevenue = orders
+  .filter(order => order.status === 'done')
+  .reduce((sum, order) => sum + order.total_bill, 0);      const orderCount = todayOrders?.length || 0;
       const scanCount = todayScans?.length || 0;
       const convRate = scanCount > 0 ? ((orderCount / scanCount) * 100).toFixed(1) : 0;
 
       setStats({
-        revenue: totalRev,
+        revenue: totalRevenue,
         orders: orderCount,
         scans: scanCount,
         conversion: convRate
