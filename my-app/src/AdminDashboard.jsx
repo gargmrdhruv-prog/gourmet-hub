@@ -75,10 +75,13 @@ const AdminDashboard = () => {
         .eq('date', todayDateStr)
         .eq('restaurant_id', restId); 
 
-      const completedOrders = todayOrders?.filter(o => o.status === 'completed') || [];
-const totalRevenue = orders
-  .filter(order => order.status === 'done')
-  .reduce((sum, order) => sum + order.total_bill, 0);      const orderCount = todayOrders?.length || 0;
+      // 🚨 CRASH-PROOF FIX: Using 'todayOrders' instead of undefined 'orders'
+      // Checking for both 'done' and 'completed' to be 100% safe
+      const totalRevenue = (todayOrders || [])
+        .filter(order => order?.status === 'done' || order?.status === 'completed')
+        .reduce((sum, order) => sum + (Number(order?.total_bill) || 0), 0);      
+      
+      const orderCount = todayOrders?.length || 0;
       const scanCount = todayScans?.length || 0;
       const convRate = scanCount > 0 ? ((orderCount / scanCount) * 100).toFixed(1) : 0;
 
