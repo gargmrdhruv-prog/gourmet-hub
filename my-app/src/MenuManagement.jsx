@@ -16,10 +16,8 @@ const MenuManagement = () => {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryText, setNewCategoryText] = useState("");
   
-  // 🚨 Naya state custom variant type karne ke liye
   const [currentVariant, setCurrentVariant] = useState({ name: '', price: '' });
 
-  // 🚨 Variants ko ab khali array [] se start karenge, Half/Full hardcode hata diya
   const [newDish, setNewDish] = useState({ 
     name: '', price: '', category_id: '', description: '', paired_items: [], is_available: true,
     rating: '', order_count: '', tags: [], has_variants: false, variants: []
@@ -148,7 +146,6 @@ const MenuManagement = () => {
     }
   };
 
-  // 🚨 Custom Variant Add Function
   const handleAddVariant = () => {
     if (currentVariant.name && currentVariant.price) {
       setNewDish({
@@ -159,7 +156,6 @@ const MenuManagement = () => {
     }
   };
 
-  // 🚨 Custom Variant Remove Function
   const handleRemoveVariant = (indexToRemove) => {
     setNewDish({
       ...newDish,
@@ -185,13 +181,10 @@ const MenuManagement = () => {
       if (!finalCategoryId || finalCategoryId === '') throw new Error("Please select a valid category or type a new one.");
 
       let finalVariants = [];
-      let finalPrice = Math.max(0, parseFloat(newDish.price) || 0);
+      let finalPrice = Math.max(0, parseFloat(newDish.price) || 0); // 🚨 Base Price hamesha pick hoga
 
-      // 🚨 DYNAMIC VARIANTS CALCULATION
       if (newDish.has_variants && newDish.variants && newDish.variants.length > 0) {
         finalVariants = newDish.variants.map(v => ({ name: v.name, price: parseFloat(v.price) }));
-        // Agar variants hain, toh menu par sabse sasta variant ka price dikhayega "Starts at ₹X"
-        finalPrice = Math.min(...finalVariants.map(v => v.price));
       } else if (newDish.has_variants && newDish.variants.length === 0) {
         throw new Error("Please add at least one variant or uncheck 'Has Variants'.");
       }
@@ -305,10 +298,10 @@ const MenuManagement = () => {
                   <td className="p-6 md:p-10">
                     {dish.variants && dish.variants.length > 0 ? (
                       <div className="flex flex-col gap-1">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Starts at</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Base</span>
                         <span className="font-black text-slate-900 italic text-lg md:text-xl">₹{dish.price}</span>
                         <span className="text-[9px] font-bold text-orange-500 uppercase bg-orange-50 px-2 py-1 rounded w-fit border border-orange-100">
-                          {dish.variants.length} Variants
+                          {dish.variants.length} Add-ons
                         </span>
                       </div>
                     ) : (
@@ -422,14 +415,21 @@ const MenuManagement = () => {
                     </div>
                   </div>
 
+                  {/* 🚨 UPDATED VARIANTS & PRICE SECTION */}
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <input type="checkbox" id="variantsToggle" checked={newDish.has_variants} onChange={e => setNewDish({...newDish, has_variants: e.target.checked})} className="w-4 h-4 accent-orange-500 cursor-pointer" />
-                      <label htmlFor="variantsToggle" className="text-[10px] font-black text-slate-800 uppercase tracking-widest cursor-pointer select-none">Has Variants / Add-ons?</label>
+                    
+                    {/* ALWAYS SHOW BASE PRICE */}
+                    <div className="mb-4">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Standard Base Price (₹) *</label>
+                      <input type="number" min="0" required className="w-full bg-slate-50 rounded-xl p-3 font-black text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" value={newDish.price} onChange={e => { const val = e.target.value; if (val >= 0 || val === "") setNewDish({...newDish, price: val}); }} />
                     </div>
 
-                    {/* 🚨 DYNAMIC VARIANTS UI START */}
-                    {newDish.has_variants ? (
+                    <div className="flex items-center gap-2 mb-3 pt-4 border-t border-slate-100">
+                      <input type="checkbox" id="variantsToggle" checked={newDish.has_variants} onChange={e => setNewDish({...newDish, has_variants: e.target.checked})} className="w-4 h-4 accent-orange-500 cursor-pointer" />
+                      <label htmlFor="variantsToggle" className="text-[10px] font-black text-slate-800 uppercase tracking-widest cursor-pointer select-none">Add Variants / Customizations?</label>
+                    </div>
+
+                    {newDish.has_variants && (
                       <div className="animate-in fade-in zoom-in-95 mt-3">
                         <div className="flex gap-2 mb-3">
                           <input
@@ -459,7 +459,7 @@ const MenuManagement = () => {
 
                         {newDish.variants && newDish.variants.length > 0 && (
                           <div className="flex flex-col gap-2 mt-4 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Added Variants:</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Added Variants / Add-ons:</p>
                             {newDish.variants.map((variant, index) => (
                               <div key={index} className="flex justify-between items-center bg-slate-50 p-2.5 px-4 rounded-xl">
                                 <span className="font-bold text-slate-700 text-sm">{variant.name}</span>
@@ -478,14 +478,7 @@ const MenuManagement = () => {
                           </div>
                         )}
                       </div>
-                    ) : (
-                      <div className="animate-in fade-in mt-3">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Standard Price (₹) *</label>
-                        <input type="number" min="0" required={!newDish.has_variants} className="w-full bg-slate-50 rounded-xl p-3 font-black text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" value={newDish.price} onChange={e => { const val = e.target.value; if (val >= 0 || val === "") setNewDish({...newDish, price: val}); }} />
-                      </div>
                     )}
-                    {/* 🚨 DYNAMIC VARIANTS UI END */}
-                    
                   </div>
                 </div>
               </div>
