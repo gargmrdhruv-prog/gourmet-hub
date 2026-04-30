@@ -104,7 +104,6 @@ function App() {
       const { data: catData } = await supabase.from('subcategories').select('*').eq('restaurant_id', restId);
       const { data: dishData } = await supabase.from('dishes').select('*').eq('restaurant_id', restId);
       
-      // 🚨 FETCH THEME COLUMNS
       const { data: settingsData } = await supabase.from('restaurant_settings')
         .select('*, primary_color, font_family, button_style')
         .eq('restaurant_id', restId)
@@ -311,6 +310,21 @@ function App() {
     return <AdminDashboard />;
   }
 
+  // 🚨 HEX TO RGBA HELPER: Taaki opacity header color aur main background par bhi apply ho
+  const getRgba = (hex, alpha) => {
+    if (!hex || !hex.startsWith('#') || hex.length !== 7) return hex || 'transparent';
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  const currentOpacity = storeSettings.menu_bg_opacity !== undefined ? storeSettings.menu_bg_opacity : 1;
+  const headerBgWithOpacity = getRgba(storeSettings.header_bg_color || '#ffffff', currentOpacity);
+  const mainBgColorWithOpacity = storeSettings.menu_bg_type === 'color' 
+    ? getRgba(storeSettings.menu_bg_value || '#f8fafc', currentOpacity) 
+    : '#f8fafc';
+
   // --- CUSTOMER VIEWS (WITH DYNAMIC THEME ENVELOPE) ---
   return (
     <div style={{ fontFamily: storeSettings.theme_font }}>
@@ -342,31 +356,31 @@ function App() {
       {/* 2. MAIN MENU */}
       {view === 'menu' && (
         <div 
-          className="w-full min-h-screen relative pb-32"
-          style={{ backgroundColor: storeSettings.menu_bg_type === 'color' ? storeSettings.menu_bg_value : '#f8fafc' }}
+          className="w-full min-h-screen relative pb-32 transition-colors duration-300"
+          style={{ backgroundColor: mainBgColorWithOpacity }}
         >
           
-          {/* 🚨 THE FIXED BACKGROUND IMAGE (Only active if image is chosen) 🚨 */}
+          {/* THE FIXED BACKGROUND IMAGE */}
           {storeSettings.menu_bg_type === 'image' && storeSettings.menu_bg_value && (
             <div 
-              className="fixed inset-0 z-0 pointer-events-none"
+              className="fixed inset-0 z-0 pointer-events-none transition-opacity duration-300"
               style={{
                 backgroundImage: `url(${storeSettings.menu_bg_value})`,
                 backgroundSize: 'cover',
-                backgroundPosition: storeSettings.menu_bg_position, 
+                backgroundPosition: storeSettings.menu_bg_position || 'center', 
                 backgroundRepeat: 'no-repeat',
-                opacity: storeSettings.menu_bg_opacity
+                opacity: currentOpacity
               }}
             />
           )}
 
-          {/* 🚨 CONTENT WRAPPER - NO GLASS EFFECT 🚨 */}
+          {/* CONTENT WRAPPER */}
           <div className="relative z-10 min-h-screen flex flex-col">
 
-            {/* HEADER - Transparent if Full Color, Solid if Image */}
+            {/* 🚨 HEADER: Added backdrop-blur-md to prevent ugly overlap bleeding */}
             <header 
-              className="shadow-sm sticky top-0 z-40 border-b border-slate-100/20"
-              style={{ backgroundColor: storeSettings.menu_bg_type === 'image' ? storeSettings.header_bg_color : 'transparent' }}
+              className="shadow-sm sticky top-0 z-40 border-b border-slate-100/20 backdrop-blur-md transition-colors duration-300"
+              style={{ backgroundColor: headerBgWithOpacity }}
             >
               <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 md:gap-5 overflow-hidden">
@@ -387,10 +401,10 @@ function App() {
               </div>
             </header>
 
-            {/* CATEGORY NAV - Syncs with Header Color */}
+            {/* 🚨 CATEGORY NAV: Synced with header glass effect */}
             <div 
-              className="sticky top-[81px] md:top-[97px] z-30 border-b border-slate-100/20 shadow-sm"
-              style={{ backgroundColor: storeSettings.menu_bg_type === 'image' ? storeSettings.header_bg_color : 'transparent' }}
+              className="sticky top-[81px] md:top-[97px] z-30 border-b border-slate-100/20 shadow-sm backdrop-blur-md transition-colors duration-300"
+              style={{ backgroundColor: headerBgWithOpacity }}
             >
               <nav className="flex gap-3 md:gap-4 overflow-x-auto p-3 md:px-8 md:py-4 max-w-7xl mx-auto no-scrollbar">
                 {categories.map(cat => (
@@ -420,7 +434,7 @@ function App() {
                     const extraTags = dish.tags?.filter(t => t !== 'Veg 🟢' && t !== 'Non-Veg 🔴' && t !== 'Bestseller ⭐') || [];
 
                     return (
-                      <div key={dish.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl transition-all flex flex-col">
+                      <div key={dish.id} className="bg-white/95 backdrop-blur-md rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl transition-all flex flex-col">
                         <div className="w-full h-44 sm:h-48 md:h-52 bg-slate-100 relative cursor-pointer flex-shrink-0" onClick={() => openDishSheet(dish)}>
                           <img src={dish.image_url || `https://source.unsplash.com/600x400/?food,${dish.name}`} className="w-full h-full object-cover" alt={dish.name} />
                           {!dish.is_available && (
@@ -504,8 +518,7 @@ function App() {
                 </div>
               )}  
             </div>
-
-          </div> {/* CONTENT WRAPPER CLOSING TAG */}
+          </div>
 
           {cart.length > 0 && (
             <div className="fixed bottom-0 left-0 right-0 md:bottom-8 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-xl bg-white md:rounded-[2rem] p-4 border-t border-slate-100 md:border md:shadow-2xl z-40 flex justify-between items-center shadow-[0_-10px_20px_rgba(0,0,0,0.05)] animate-in slide-in-from-bottom-10">
