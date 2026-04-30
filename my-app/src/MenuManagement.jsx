@@ -16,9 +16,13 @@ const MenuManagement = () => {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryText, setNewCategoryText] = useState("");
   
+  // 🚨 Naya state custom variant type karne ke liye
+  const [currentVariant, setCurrentVariant] = useState({ name: '', price: '' });
+
+  // 🚨 Variants ko ab khali array [] se start karenge, Half/Full hardcode hata diya
   const [newDish, setNewDish] = useState({ 
     name: '', price: '', category_id: '', description: '', paired_items: [], is_available: true,
-    rating: '', order_count: '', tags: [], has_variants: false, variants: [{ name: 'Half', price: '' }, { name: 'Full', price: '' }]
+    rating: '', order_count: '', tags: [], has_variants: false, variants: []
   });
 
   const availableTags = ['Veg 🟢', 'Non-Veg 🔴', 'Bestseller ⭐', 'Spicy 🌶️', "Chef's Special 👨‍🍳", 'Sweet 🍯'];
@@ -77,13 +81,14 @@ const MenuManagement = () => {
   const resetForm = () => {
     setNewDish({ 
       name: '', price: '', category_id: '', description: '', paired_items: [], is_available: true,
-      rating: '', order_count: '', tags: [], has_variants: false, variants: [{ name: 'Half', price: '' }, { name: 'Full', price: '' }]
+      rating: '', order_count: '', tags: [], has_variants: false, variants: []
     });
     setEditingId(null);
     setImageFile(null);
     setIsModalOpen(false);
     setIsAddingCategory(false);
     setNewCategoryText("");
+    setCurrentVariant({ name: '', price: '' });
   };
 
   const startEdit = (dish) => {
@@ -101,7 +106,7 @@ const MenuManagement = () => {
       order_count: dish.order_count === null ? '' : dish.order_count,
       tags: dish.tags || [],
       has_variants: hasVars,
-      variants: hasVars ? dish.variants : [{ name: 'Half', price: '' }, { name: 'Full', price: '' }]
+      variants: hasVars ? dish.variants : []
     });
     setIsModalOpen(true);
   };
@@ -143,6 +148,25 @@ const MenuManagement = () => {
     }
   };
 
+  // 🚨 Custom Variant Add Function
+  const handleAddVariant = () => {
+    if (currentVariant.name && currentVariant.price) {
+      setNewDish({
+        ...newDish,
+        variants: [...(newDish.variants || []), { name: currentVariant.name, price: Number(currentVariant.price) }]
+      });
+      setCurrentVariant({ name: '', price: '' }); 
+    }
+  };
+
+  // 🚨 Custom Variant Remove Function
+  const handleRemoveVariant = (indexToRemove) => {
+    setNewDish({
+      ...newDish,
+      variants: newDish.variants.filter((_, index) => index !== indexToRemove)
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setActionLoading(true);
@@ -163,19 +187,15 @@ const MenuManagement = () => {
       let finalVariants = [];
       let finalPrice = Math.max(0, parseFloat(newDish.price) || 0);
 
-      if (newDish.has_variants) {
-        const halfPrice = Math.max(0, parseFloat(newDish.variants[0].price) || 0);
-        const fullPrice = Math.max(0, parseFloat(newDish.variants[1].price) || 0);
-
-        if (halfPrice > 0) finalVariants.push({ name: 'Half', price: halfPrice });
-        if (fullPrice > 0) finalVariants.push({ name: 'Full', price: fullPrice });
-
-        if (finalVariants.length > 0) {
-          finalPrice = Math.min(...finalVariants.map(v => v.price));
-        }
+      // 🚨 DYNAMIC VARIANTS CALCULATION
+      if (newDish.has_variants && newDish.variants && newDish.variants.length > 0) {
+        finalVariants = newDish.variants.map(v => ({ name: v.name, price: parseFloat(v.price) }));
+        // Agar variants hain, toh menu par sabse sasta variant ka price dikhayega "Starts at ₹X"
+        finalPrice = Math.min(...finalVariants.map(v => v.price));
+      } else if (newDish.has_variants && newDish.variants.length === 0) {
+        throw new Error("Please add at least one variant or uncheck 'Has Variants'.");
       }
 
-      // 🚨 FIX: Safety checks added for negative inputs before saving
       const safeRating = newDish.rating === '' ? null : Math.min(5, Math.max(1, parseFloat(newDish.rating)));
       const safeOrderCount = newDish.order_count === '' ? null : Math.max(0, parseInt(newDish.order_count));
 
@@ -287,7 +307,9 @@ const MenuManagement = () => {
                       <div className="flex flex-col gap-1">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Starts at</span>
                         <span className="font-black text-slate-900 italic text-lg md:text-xl">₹{dish.price}</span>
-                        <span className="text-[9px] font-bold text-orange-500 uppercase bg-orange-50 px-2 py-1 rounded w-fit border border-orange-100">Has Variants</span>
+                        <span className="text-[9px] font-bold text-orange-500 uppercase bg-orange-50 px-2 py-1 rounded w-fit border border-orange-100">
+                          {dish.variants.length} Variants
+                        </span>
                       </div>
                     ) : (
                       <span className="font-black text-slate-900 italic text-lg md:text-xl">₹{dish.price}</span>
@@ -380,7 +402,6 @@ const MenuManagement = () => {
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex gap-4">
                     <div className="flex-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Rating (Optional)</label>
-                      {/* 🚨 PREVENT NEGATIVES IN RATING */}
                       <input type="number" step="0.1" max="5" min="1" placeholder="e.g. 4.5" className="w-full bg-slate-50 rounded-xl p-3 font-black text-orange-500 outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-slate-300" value={newDish.rating} 
                         onChange={e => setNewDish({...newDish, rating: e.target.value})} 
                         onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }} 
@@ -388,7 +409,6 @@ const MenuManagement = () => {
                     </div>
                     <div className="flex-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Fake Orders (Opt)</label>
-                      {/* 🚨 PREVENT NEGATIVES IN FAKE ORDERS */}
                       <input type="number" min="0" placeholder="e.g. 120" className="w-full bg-slate-50 rounded-xl p-3 font-black text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-slate-300" 
                         value={newDish.order_count} 
                         onChange={e => {
@@ -405,26 +425,67 @@ const MenuManagement = () => {
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                     <div className="flex items-center gap-2 mb-3">
                       <input type="checkbox" id="variantsToggle" checked={newDish.has_variants} onChange={e => setNewDish({...newDish, has_variants: e.target.checked})} className="w-4 h-4 accent-orange-500 cursor-pointer" />
-                      <label htmlFor="variantsToggle" className="text-[10px] font-black text-slate-800 uppercase tracking-widest cursor-pointer select-none">Has Variants (Half / Full)?</label>
+                      <label htmlFor="variantsToggle" className="text-[10px] font-black text-slate-800 uppercase tracking-widest cursor-pointer select-none">Has Variants / Add-ons?</label>
                     </div>
 
+                    {/* 🚨 DYNAMIC VARIANTS UI START */}
                     {newDish.has_variants ? (
-                      <div className="flex gap-4 animate-in fade-in zoom-in-95">
-                        <div className="flex-1">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Half Price (₹) *</label>
-                          <input type="number" min="0" required={newDish.has_variants} className="w-full bg-slate-50 rounded-xl p-3 font-black text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" value={newDish.variants[0].price} onChange={e => { const newVars = [...newDish.variants]; newVars[0].price = e.target.value; setNewDish({...newDish, variants: newVars}); }} />
+                      <div className="animate-in fade-in zoom-in-95 mt-3">
+                        <div className="flex gap-2 mb-3">
+                          <input
+                            type="text"
+                            placeholder="e.g., Extra Cheese"
+                            className="flex-1 bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500"
+                            value={currentVariant.name}
+                            onChange={(e) => setCurrentVariant({ ...currentVariant, name: e.target.value })}
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="Price (₹)"
+                            className="w-28 bg-slate-50 border-none rounded-xl p-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500"
+                            value={currentVariant.price}
+                            onChange={(e) => setCurrentVariant({ ...currentVariant, price: e.target.value })}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddVariant}
+                            disabled={!currentVariant.name || !currentVariant.price}
+                            className="bg-slate-900 text-white px-4 rounded-xl font-bold text-sm disabled:opacity-50 hover:bg-black transition-all"
+                          >
+                            Add
+                          </button>
                         </div>
-                        <div className="flex-1">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Full Price (₹) *</label>
-                          <input type="number" min="0" required={newDish.has_variants} className="w-full bg-slate-50 rounded-xl p-3 font-black text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" value={newDish.variants[1].price} onChange={e => { const newVars = [...newDish.variants]; newVars[1].price = e.target.value; setNewDish({...newDish, variants: newVars}); }} />
-                        </div>
+
+                        {newDish.variants && newDish.variants.length > 0 && (
+                          <div className="flex flex-col gap-2 mt-4 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Added Variants:</p>
+                            {newDish.variants.map((variant, index) => (
+                              <div key={index} className="flex justify-between items-center bg-slate-50 p-2.5 px-4 rounded-xl">
+                                <span className="font-bold text-slate-700 text-sm">{variant.name}</span>
+                                <div className="flex items-center gap-4">
+                                  <span className="font-black text-slate-900 text-sm">₹{variant.price}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveVariant(index)}
+                                    className="text-red-500 hover:bg-red-100 p-1.5 rounded-lg transition-all"
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ) : (
-                      <div className="animate-in fade-in">
+                      <div className="animate-in fade-in mt-3">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Standard Price (₹) *</label>
                         <input type="number" min="0" required={!newDish.has_variants} className="w-full bg-slate-50 rounded-xl p-3 font-black text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" value={newDish.price} onChange={e => { const val = e.target.value; if (val >= 0 || val === "") setNewDish({...newDish, price: val}); }} />
                       </div>
                     )}
+                    {/* 🚨 DYNAMIC VARIANTS UI END */}
+                    
                   </div>
                 </div>
               </div>
