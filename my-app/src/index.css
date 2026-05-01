@@ -1,1 +1,60 @@
 @import "tailwindcss";
+
+/* ========================================================
+   🚀 CROSS-BROWSER & MOBILE DEFAULT BROWSER FIXES
+   ======================================================== */
+
+/* 1. Remove ugly blue tap highlights on Android/iOS default browsers */
+* {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* 2. Fix Font Rendering (Makes font look sharp and same on Safari & Chrome) */
+html, body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent pull-to-refresh bounce issue on mobile */
+  overscroll-behavior-y: none; 
+}
+
+/* 3. Force Glassmorphism (Blur) on Safari and Older Default Browsers */
+.backdrop-blur-md {
+  -webkit-backdrop-filter: blur(12px) !important;
+  backdrop-filter: blur(12px) !important;
+}
+.backdrop-blur-sm {
+  -webkit-backdrop-filter: blur(4px) !important;
+  backdrop-filter: blur(4px) !important;
+}
+.backdrop-blur-xl {
+  -webkit-backdrop-filter: blur(24px) !important;
+  backdrop-filter: blur(24px) !important;
+}
+
+/* 4. SAFE AREA INSETS FIX (For iOS Notch & Android Bottom Nav Bars) */
+/* This prevents your cart or bottom sheet from hiding behind the phone's navigation buttons */
+.fixed.bottom-0 {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pb-32 {
+  padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* 5. Custom Scrollbar Universal Consistency */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.3);
+  border-radius: 10px;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
