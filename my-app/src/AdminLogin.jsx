@@ -31,6 +31,9 @@ const AdminLogin = ({ onLoginSuccess }) => {
       }
 
       localStorage.setItem('admin_user', JSON.stringify(data));
+      const midnight = new Date();
+midnight.setHours(24, 0, 0, 0); // Aaj raat 12 baje ka exact time
+localStorage.setItem('admin_session_expiry', midnight.getTime().toString());  
       onLoginSuccess(data);
 
     } catch (err) {

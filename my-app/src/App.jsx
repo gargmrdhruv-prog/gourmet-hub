@@ -56,17 +56,40 @@ function App() {
   useEffect(() => { localStorage.setItem('gourmet_order_id', orderId); }, [orderId]);
   useEffect(() => { localStorage.setItem('gourmet_rest_id', restaurantId); }, [restaurantId]);
 
+  // 🚨 1. INITIAL LOAD & MIDNIGHT EXPIRY CHECK
   useEffect(() => {
     const init = async () => {
       const savedUser = localStorage.getItem('admin_user');
-      let activeRestId = '1';
+      const sessionExpiry = localStorage.getItem('admin_session_expiry');
+      const now = new Date().getTime();
+      
+      let isValidSession = false;
 
+      // Check if session exists and is valid
+      if (savedUser) {
+        if (sessionExpiry && now > parseInt(sessionExpiry)) {
+          // Time has passed Midnight - Expire it!
+          localStorage.removeItem('admin_user');
+          localStorage.removeItem('admin_session_expiry');
+          console.log("Session expired at midnight.");
+        } else {
+          isValidSession = true;
+          // Fallback: If legacy user has no expiry, set it to tonight's midnight
+          if (!sessionExpiry) {
+            const midnight = new Date();
+            midnight.setHours(24, 0, 0, 0);
+            localStorage.setItem('admin_session_expiry', midnight.getTime().toString());
+          }
+        }
+      }
+
+      let activeRestId = '1';
       const urlParams = new URLSearchParams(window.location.search);
       const urlRestId = urlParams.get('rest');
 
       if (urlRestId) {
         activeRestId = urlRestId;
-      } else if (savedUser) {
+      } else if (isValidSession) {
         const currentUser = JSON.parse(savedUser);
         activeRestId = currentUser.id;
       } else {
@@ -75,8 +98,13 @@ function App() {
 
       setRestaurantId(activeRestId);
 
-      if (savedUser) {
+      // Handle Authentication Routing
+      if (isValidSession) {
         setUser(JSON.parse(savedUser));
+      } else if (window.location.href.includes('/admin') && !window.location.href.includes('admin-login')) {
+        // Force redirect to login if session is expired or missing
+        window.location.href = '/admin-login';
+        return;
       }
       
       await fetchInitialData(activeRestId);
@@ -85,6 +113,26 @@ function App() {
     };
     init();
   }, []); 
+
+  // 🚨 2. REAL-TIME AUTO-KICK AT EXACTLY 12:00 AM
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const sessionExpiry = localStorage.getItem('admin_session_expiry');
+      const now = new Date().getTime();
+      
+      // Agar admin laptop open chhod de, toh theek 12 baje ye code use logout kar dega
+      if (sessionExpiry && now > parseInt(sessionExpiry)) {
+        localStorage.removeItem('admin_user');
+        localStorage.removeItem('admin_session_expiry');
+        setUser(null);
+        if (window.location.href.includes('/admin')) {
+          window.location.href = '/admin-login';
+        }
+      }
+    }, 60000); // Checks every 1 minute
+    
+    return () => clearInterval(interval);
+  }, []);
 
   async function recordScan(restId) {
     const sessionActive = sessionStorage.getItem('scan_recorded');
@@ -226,6 +274,24 @@ function App() {
     setMainDishQty(1);
     setSheetRecs({});
     setSelectedVariants([]); 
+  };
+
+  const updateSheetRecQty = (dish, variant, change) => {
+    const key = variant ? `${dish.id}-${variant.name}` : `${dish.id}-regular`;
+    setSheetRecs(prev => {
+      const currentQty = prev[key]?.qty || 0;
+      const newQty = currentQty + change;
+      
+      if (newQty <= 0) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return {
+        ...prev,
+        [key]: { dish, variant, qty: newQty }
+      };
+    });
   };
 
   const getSheetTotals = () => {
@@ -786,7 +852,6 @@ function App() {
                         />
                       </div>
 
-                      {/* 🚨 RECOMMENDED ITEMS UI FIXED 🚨 */}
                       {!editingCartItem && getSmartRecs(selectedDish).length > 0 && (
                         <div>
                           <h3 className="font-bold text-slate-800 mb-3 md:mb-4 text-xs md:text-sm">Recommended with this</h3>
@@ -805,9 +870,7 @@ function App() {
                                     </div>
                                     <button 
                                       onClick={() => {
-                                        // 1. Current main item ko cart mein save kardo taaki data lose na ho
                                         addToCart(selectedDish, selectedVariants, cookingRequest, false, mainDishQty);
-                                        // 2. Naya recommended item sheet mein khol do taaki user aaram se variants chune
                                         openDishSheet(rec);
                                       }} 
                                       style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` }} 
