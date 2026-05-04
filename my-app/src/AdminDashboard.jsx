@@ -37,7 +37,7 @@ const AdminDashboard = () => {
     try {
       localStorage.clear();
       sessionStorage.clear();
-      window.location.href = '/admin'; 
+      window.location.href = '/admin-login'; 
     } catch (error) {
       console.error("Error logging out:", error.message);
     }
@@ -75,10 +75,8 @@ const AdminDashboard = () => {
         .eq('date', todayDateStr)
         .eq('restaurant_id', restId); 
 
-      // 🚨 CRASH-PROOF FIX: Using 'todayOrders' instead of undefined 'orders'
-      // Checking for both 'done' and 'completed' to be 100% safe
+      // 🚨 THE FIX: Count all incoming orders towards revenue immediately
       const totalRevenue = (todayOrders || [])
-        .filter(order => order?.status === 'done' || order?.status === 'completed')
         .reduce((sum, order) => sum + (Number(order?.total_bill) || 0), 0);      
       
       const orderCount = todayOrders?.length || 0;

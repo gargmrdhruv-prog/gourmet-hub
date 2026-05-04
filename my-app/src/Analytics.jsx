@@ -56,7 +56,7 @@ const Analytics = () => {
       const prevEnd = new Date(start.getTime() - 1);
       setPrevPeriodText(`${formatDate(prevStart)} - ${formatDate(prevEnd)}`);
 
-      // 🚨 1. Fetch Orders (Current) - Added 'status' to select query
+      // 1. Fetch Orders (Current)
       const { data: currentOrders } = await supabase
         .from('orders')
         .select('total_bill, created_at, status') 
@@ -64,7 +64,7 @@ const Analytics = () => {
         .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
 
-      // 🚨 2. Fetch Orders (Prev) - Added 'status' to select query
+      // 2. Fetch Orders (Prev)
       const { data: prevOrders } = await supabase
         .from('orders')
         .select('total_bill, status')
@@ -72,7 +72,7 @@ const Analytics = () => {
         .gte('created_at', prevStart.toISOString())
         .lte('created_at', prevEnd.toISOString());
       
-      // 🚨 3. Fetch Scans
+      // 3. Fetch Scans
       const { data: currentScans } = await supabase
         .from('qr_scans')
         .select('scanned_at')
@@ -80,21 +80,18 @@ const Analytics = () => {
         .gte('scanned_at', start.toISOString())
         .lte('scanned_at', end.toISOString());
 
-      // 🚨 4. Calculations (CRASH PROOF + FILTERED ONLY FOR 'done' or 'completed')
-      
-      // Filter valid current orders
-      const validCurrentOrders = (currentOrders || []).filter(o => o?.status === 'done' || o?.status === 'completed');
+      // 🚨 THE FIX: Remove strict filtering. Count ALL orders.
+      const validCurrentOrders = currentOrders || [];
       const currRev = validCurrentOrders.reduce((sum, o) => sum + (Number(o.total_bill) || 0), 0) || 0;
       
-      // Filter valid previous orders
-      const validPrevOrders = (prevOrders || []).filter(o => o?.status === 'done' || o?.status === 'completed');
+      const validPrevOrders = prevOrders || [];
       const prevRev = validPrevOrders.reduce((sum, o) => sum + (Number(o.total_bill) || 0), 0) || 0;
       
       let growthPct = prevRev > 0 ? ((currRev - prevRev) / prevRev) * 100 : (currRev > 0 ? 100 : 0);
 
       setStats({ 
         revenue: currRev, 
-        orders: validCurrentOrders.length, // Only counting completed orders
+        orders: validCurrentOrders.length,
         scans: currentScans?.length || 0, 
         growth: Math.round(growthPct) 
       });
