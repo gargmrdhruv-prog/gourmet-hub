@@ -1,15 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
-import AdminLogin from './AdminLogin';
-import AdminDashboard from './AdminDashboard';
-import Settings from "./Settings";
-import SuperAdminDashboard from './SuperAdminDashboard'; 
-import { Loader2, CheckCircle2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, ShoppingCart, Edit3, BellRing } from 'lucide-react';
-import SuperAdminLogin from './SuperAdminLogin';
-import { Navigate, useLocation } from 'react-router-dom'; // 🔥 Only using Navigate and useLocation hook here
+import { Loader2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, Edit3, BellRing } from 'lucide-react';
 
 function App() {
-  const [user, setUser] = useState(null);
   const [view, setView] = useState('welcome');
   const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('gourmet_cart')) || []);
   const [placedOrderItems, setPlacedOrderItems] = useState(() => JSON.parse(localStorage.getItem('gourmet_placed_items')) || []);
@@ -25,15 +18,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   
   const [vh, setVh] = useState(window.innerHeight);
-  
-  // Using useLocation hook to get current path safely inside the Router context
-  const location = useLocation();
-  const currentPath = location.pathname;
-
   useEffect(() => {
-    const handleResize = () => {
-      setVh(window.innerHeight);
-    };
+    const handleResize = () => setVh(window.innerHeight);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -47,49 +33,14 @@ function App() {
   const [editingCartItem, setEditingCartItem] = useState(null);
   const [storeSettings, setStoreSettings] = useState(null); 
 
-  // 🚨 1. INITIAL LOAD & MIDNIGHT EXPIRY CHECK
   useEffect(() => {
     const init = async () => {
-      const savedUser = localStorage.getItem('admin_user');
-      const sessionExpiry = localStorage.getItem('admin_session_expiry');
-      const now = new Date().getTime();
-      
-      let isValidSession = false;
-
-      // Check Session Validity
-      if (savedUser) {
-        if (sessionExpiry && now > parseInt(sessionExpiry)) {
-          localStorage.removeItem('admin_user');
-          localStorage.removeItem('admin_session_expiry');
-          console.log("Session expired at midnight.");
-        } else {
-          isValidSession = true;
-          if (!sessionExpiry) {
-            const midnight = new Date();
-            midnight.setHours(24, 0, 0, 0);
-            localStorage.setItem('admin_session_expiry', midnight.getTime().toString());
-          }
-        }
-      }
-
-      // If it's an admin route, just set user and stop. No need to fetch customer menu.
-      if (currentPath.startsWith('/admin') || currentPath.startsWith('/super-admin')) {
-         if (isValidSession) {
-           setUser(JSON.parse(savedUser));
-         }
-         setLoading(false); 
-         return; 
-      }
-
-      // If it's the customer route, setup ID and fetch menu.
       let activeRestId = '1';
       const urlParams = new URLSearchParams(window.location.search);
       const urlRestId = urlParams.get('rest');
       const urlTableId = urlParams.get('table');
 
-      if (urlTableId) {
-        setTableNumber(urlTableId);
-      }
+      if (urlTableId) setTableNumber(urlTableId);
 
       if (urlRestId) {
         activeRestId = urlRestId;
@@ -102,32 +53,13 @@ function App() {
       recordScan(activeRestId);
     };
     init();
-  }, [currentPath]);
+  }, []); 
 
   useEffect(() => { localStorage.setItem('gourmet_cart', JSON.stringify(cart)); }, [cart]);
   useEffect(() => { localStorage.setItem('gourmet_table', tableNumber); }, [tableNumber]);
   useEffect(() => { localStorage.setItem('gourmet_placed_items', JSON.stringify(placedOrderItems)); }, [placedOrderItems]);
   useEffect(() => { localStorage.setItem('gourmet_order_id', orderId); }, [orderId]);
   useEffect(() => { localStorage.setItem('gourmet_rest_id', restaurantId); }, [restaurantId]);
-
-  // 🚨 2. REAL-TIME AUTO-KICK
-  useEffect(() => {
-    if (!currentPath.startsWith('/admin')) return; 
-
-    const interval = setInterval(() => {
-      const sessionExpiry = localStorage.getItem('admin_session_expiry');
-      const now = new Date().getTime();
-      
-      if (sessionExpiry && now > parseInt(sessionExpiry)) {
-        localStorage.removeItem('admin_user');
-        localStorage.removeItem('admin_session_expiry');
-        setUser(null);
-        window.location.href = '/admin-login';
-      }
-    }, 60000); 
-    
-    return () => clearInterval(interval);
-  }, [currentPath]);
 
   async function recordScan(restId) {
     const sessionActive = sessionStorage.getItem('scan_recorded');
@@ -339,29 +271,6 @@ function App() {
     setView('menu');
   };
 
-  // 🚨 3. ADMIN ROUTING BLOCK (HARD RETURN)
-  if (currentPath.includes('super-admin-login')) return <SuperAdminLogin />;
-  if (currentPath.includes('super-admin')) return localStorage.getItem('super_admin_auth') === 'true' ? <SuperAdminDashboard /> : <SuperAdminLogin />;
-  
-  if (currentPath.includes('admin-login')) {
-    if (user) { 
-        return <Navigate to="/admin" replace />; 
-    }
-    return (
-       <div className="min-h-screen bg-slate-50 flex flex-col justify-center">
-         <AdminLogin onLoginSuccess={(u) => { setUser(u); window.location.href = '/admin'; }} />
-       </div>
-    );
-  }
-  
-  // NOTE: If current route doesn't match login but it's still an admin sub-route,
-  // we leave rendering to the React Router setup in main.jsx. 
-  // App.jsx will just return null to not interfere with Admin routes.
-  if (currentPath.includes('/admin')) {
-      return null; 
-  }
-
-  // 🚨 4. LOADING STATE FOR CUSTOMER MENU
   if (loading || !storeSettings) {
     return (
       <div className="h-screen bg-slate-900 flex flex-col items-center justify-center text-white gap-4">
