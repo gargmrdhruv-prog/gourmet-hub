@@ -6,12 +6,10 @@ import Settings from "./Settings";
 import SuperAdminDashboard from './SuperAdminDashboard'; 
 import { Loader2, CheckCircle2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, ShoppingCart, Edit3, BellRing } from 'lucide-react';
 import SuperAdminLogin from './SuperAdminLogin';
-// 🚨 NEW IMPORT: Added BrowserRouter to fix the 'useLocation' error
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom'; // 🔥 Only using Navigate and useLocation hook here
 
-function AppContent() {
+function App() {
   const [user, setUser] = useState(null);
-  
   const [view, setView] = useState('welcome');
   const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('gourmet_cart')) || []);
   const [placedOrderItems, setPlacedOrderItems] = useState(() => JSON.parse(localStorage.getItem('gourmet_placed_items')) || []);
@@ -27,6 +25,11 @@ function AppContent() {
   const [loading, setLoading] = useState(true);
   
   const [vh, setVh] = useState(window.innerHeight);
+  
+  // Using useLocation hook to get current path safely inside the Router context
+  const location = useLocation();
+  const currentPath = location.pathname;
+
   useEffect(() => {
     const handleResize = () => {
       setVh(window.innerHeight);
@@ -44,8 +47,6 @@ function AppContent() {
   const [editingCartItem, setEditingCartItem] = useState(null);
   const [storeSettings, setStoreSettings] = useState(null); 
 
-  const currentPath = window.location.pathname;
-  
   // 🚨 1. INITIAL LOAD & MIDNIGHT EXPIRY CHECK
   useEffect(() => {
     const init = async () => {
@@ -111,7 +112,7 @@ function AppContent() {
 
   // 🚨 2. REAL-TIME AUTO-KICK
   useEffect(() => {
-    if (!currentPath.startsWith('/admin')) return;
+    if (!currentPath.startsWith('/admin')) return; 
 
     const interval = setInterval(() => {
       const sessionExpiry = localStorage.getItem('admin_session_expiry');
@@ -346,7 +347,6 @@ function AppContent() {
     if (user) { 
         return <Navigate to="/admin" replace />; 
     }
-    // Render AdminLogin within Router context
     return (
        <div className="min-h-screen bg-slate-50 flex flex-col justify-center">
          <AdminLogin onLoginSuccess={(u) => { setUser(u); window.location.href = '/admin'; }} />
@@ -354,10 +354,11 @@ function AppContent() {
     );
   }
   
-  if (currentPath.includes('admin/settings')) return <Settings />;
+  // NOTE: If current route doesn't match login but it's still an admin sub-route,
+  // we leave rendering to the React Router setup in main.jsx. 
+  // App.jsx will just return null to not interfere with Admin routes.
   if (currentPath.includes('/admin')) {
-    if (!user) { window.location.href = '/admin-login'; return null; }
-    return <AdminDashboard />;
+      return null; 
   }
 
   // 🚨 4. LOADING STATE FOR CUSTOMER MENU
@@ -929,11 +930,4 @@ function AppContent() {
   );
 }
 
-// 🚨 WRAP THE ENTIRE APP IN A ROUTER TO FIX USELOCATION ISSUE
-export default function App() {
-  return (
-    <Router>
-      <AppContent />
-    </Router>
-  );
-}
+export default App;

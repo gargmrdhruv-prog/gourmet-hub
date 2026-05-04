@@ -13,13 +13,9 @@ const AdminLayout = ({ children }) => {
   useEffect(() => {
     const fetchSettings = async () => {
       const savedUser = localStorage.getItem('admin_user');
-      
-      // 🚨 THE FIX: Safe Routing Check to prevent infinite loops and blank screens
       if (!savedUser) {
-        if (!window.location.pathname.includes('admin-login')) {
-          window.location.href = '/admin-login';
-        }
-        return; 
+        window.location.href = '/admin-login';
+        return;
       }
       
       const userObj = JSON.parse(savedUser);
@@ -43,7 +39,7 @@ const AdminLayout = ({ children }) => {
 
   const menuItems = [
     { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/admin' },
-    { name: 'Live Display', icon: <ShoppingCart size={20} />, path: '/admin/orders' },
+    { name: 'Live Display', icon: <ShoppingCart size={20} />, path: '/admin/orders' }, // Renamed Live Orders
     { name: 'Menu Editor', icon: <UtensilsCrossed size={20} />, path: '/admin/menu' },
     { name: 'Analytics', icon: <BarChart3 size={20} />, path: '/admin/analytics' },
     { name: 'Settings', icon: <Settings size={20} />, path: '/admin/settings' },
