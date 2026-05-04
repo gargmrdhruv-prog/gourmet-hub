@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
-import { Loader2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, Edit3, BellRing } from 'lucide-react';
+import AdminLogin from './AdminLogin';
+import AdminDashboard from './AdminDashboard';
+import Settings from "./Settings";
+import SuperAdminDashboard from './SuperAdminDashboard'; 
+import { Loader2, CheckCircle2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, ShoppingCart, Edit3, BellRing } from 'lucide-react';
+import SuperAdminLogin from './SuperAdminLogin';
+import { Navigate, useLocation } from 'react-router-dom';
 
 function App() {
+  const [user, setUser] = useState(null);
   const [view, setView] = useState('welcome');
   const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('gourmet_cart')) || []);
   const [placedOrderItems, setPlacedOrderItems] = useState(() => JSON.parse(localStorage.getItem('gourmet_placed_items')) || []);
@@ -18,8 +25,14 @@ function App() {
   const [loading, setLoading] = useState(true);
   
   const [vh, setVh] = useState(window.innerHeight);
+  
+  const location = useLocation();
+  const currentPath = location.pathname;
+
   useEffect(() => {
-    const handleResize = () => setVh(window.innerHeight);
+    const handleResize = () => {
+      setVh(window.innerHeight);
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -33,14 +46,52 @@ function App() {
   const [editingCartItem, setEditingCartItem] = useState(null);
   const [storeSettings, setStoreSettings] = useState(null); 
 
+  // 🚨 THE FIX: Auto-redirect to menu if cart becomes empty on checkout page
+  useEffect(() => {
+    if (view === 'checkout' && cart.length === 0) {
+      setView('menu');
+    }
+  }, [cart, view]);
+
   useEffect(() => {
     const init = async () => {
+      const savedUser = localStorage.getItem('admin_user');
+      const sessionExpiry = localStorage.getItem('admin_session_expiry');
+      const now = new Date().getTime();
+      
+      let isValidSession = false;
+
+      if (savedUser) {
+        if (sessionExpiry && now > parseInt(sessionExpiry)) {
+          localStorage.removeItem('admin_user');
+          localStorage.removeItem('admin_session_expiry');
+          console.log("Session expired at midnight.");
+        } else {
+          isValidSession = true;
+          if (!sessionExpiry) {
+            const midnight = new Date();
+            midnight.setHours(24, 0, 0, 0);
+            localStorage.setItem('admin_session_expiry', midnight.getTime().toString());
+          }
+        }
+      }
+
+      if (currentPath.startsWith('/admin') || currentPath.startsWith('/super-admin')) {
+         if (isValidSession) {
+           setUser(JSON.parse(savedUser));
+         }
+         setLoading(false); 
+         return; 
+      }
+
       let activeRestId = '1';
       const urlParams = new URLSearchParams(window.location.search);
       const urlRestId = urlParams.get('rest');
       const urlTableId = urlParams.get('table');
 
-      if (urlTableId) setTableNumber(urlTableId);
+      if (urlTableId) {
+        setTableNumber(urlTableId);
+      }
 
       if (urlRestId) {
         activeRestId = urlRestId;
@@ -53,13 +104,31 @@ function App() {
       recordScan(activeRestId);
     };
     init();
-  }, []); 
+  }, [currentPath]);
 
   useEffect(() => { localStorage.setItem('gourmet_cart', JSON.stringify(cart)); }, [cart]);
   useEffect(() => { localStorage.setItem('gourmet_table', tableNumber); }, [tableNumber]);
   useEffect(() => { localStorage.setItem('gourmet_placed_items', JSON.stringify(placedOrderItems)); }, [placedOrderItems]);
   useEffect(() => { localStorage.setItem('gourmet_order_id', orderId); }, [orderId]);
   useEffect(() => { localStorage.setItem('gourmet_rest_id', restaurantId); }, [restaurantId]);
+
+  useEffect(() => {
+    if (!currentPath.startsWith('/admin')) return; 
+
+    const interval = setInterval(() => {
+      const sessionExpiry = localStorage.getItem('admin_session_expiry');
+      const now = new Date().getTime();
+      
+      if (sessionExpiry && now > parseInt(sessionExpiry)) {
+        localStorage.removeItem('admin_user');
+        localStorage.removeItem('admin_session_expiry');
+        setUser(null);
+        window.location.href = '/admin-login';
+      }
+    }, 60000); 
+    
+    return () => clearInterval(interval);
+  }, [currentPath]);
 
   async function recordScan(restId) {
     const sessionActive = sessionStorage.getItem('scan_recorded');
@@ -271,6 +340,24 @@ function App() {
     setView('menu');
   };
 
+  if (currentPath.includes('super-admin-login')) return <SuperAdminLogin />;
+  if (currentPath.includes('super-admin')) return localStorage.getItem('super_admin_auth') === 'true' ? <SuperAdminDashboard /> : <SuperAdminLogin />;
+  
+  if (currentPath.includes('admin-login')) {
+    if (user) { 
+        return <Navigate to="/admin" replace />; 
+    }
+    return (
+       <div className="min-h-screen bg-slate-50 flex flex-col justify-center">
+         <AdminLogin onLoginSuccess={(u) => { setUser(u); window.location.href = '/admin'; }} />
+       </div>
+    );
+  }
+  
+  if (currentPath.includes('/admin')) {
+      return null; 
+  }
+
   if (loading || !storeSettings) {
     return (
       <div className="h-screen bg-slate-900 flex flex-col items-center justify-center text-white gap-4">
@@ -279,6 +366,21 @@ function App() {
       </div>
     );
   }
+
+  // 🚨 SMART COLOR DETECTOR: Checks if the background hex is a dark color
+  const isDarkColor = (color) => {
+    if (!color) return false;
+    let hex = color.replace('#', '');
+    if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+    const r = parseInt(hex.substring(0, 2), 16) || 0;
+    const g = parseInt(hex.substring(2, 4), 16) || 0;
+    const b = parseInt(hex.substring(4, 6), 16) || 0;
+    // Calculate perceived brightness
+    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return luma < 128; // If luma is less than 128, it's a dark background
+  };
+
+  const isDarkTheme = storeSettings.menu_bg_type === 'color' ? isDarkColor(storeSettings.menu_bg_value) : false;
 
   const getRgba = (hex, alpha) => {
     if (!hex || !hex.startsWith('#') || hex.length !== 7) return hex || 'transparent';
@@ -294,10 +396,6 @@ function App() {
   const mainBgColor = storeSettings.menu_bg_type === 'color' 
     ? (storeSettings.menu_bg_value || '#f8fafc') 
     : '#f8fafc';
-
-  const secondaryPageBgColor = storeSettings.menu_bg_type === 'image' 
-    ? (storeSettings.header_bg_color || '#ffffff') 
-    : mainBgColor; 
 
   return (
     <div style={{ fontFamily: storeSettings.theme_font }}>
@@ -328,7 +426,8 @@ function App() {
       {view !== 'welcome' && (
         <div 
           className="w-full relative transition-colors duration-300"
-          style={{ backgroundColor: view === 'menu' ? mainBgColor : secondaryPageBgColor, minHeight: `${vh}px` }}
+          // 🚨 FIX: Checkout and Waiter Screen now always have a clean light background for perfect readability
+          style={{ backgroundColor: view === 'menu' ? mainBgColor : '#f8fafc', minHeight: `${vh}px` }}
         >
           
           {view === 'menu' && storeSettings.menu_bg_type === 'image' && storeSettings.menu_bg_value && (
@@ -350,17 +449,19 @@ function App() {
             {view === 'menu' && (
               <>
                 <header 
-                  className="shadow-sm sticky top-0 z-40 border-b border-slate-100/20 backdrop-blur-md transition-colors duration-300"
+                  className="shadow-sm sticky top-0 z-40 border-b border-slate-100/10 backdrop-blur-md transition-colors duration-300"
                   style={{ backgroundColor: storeSettings.menu_bg_type === 'image' ? headerBgWithOpacity : 'transparent' }}
                 >
                   <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 md:gap-5 overflow-hidden">
-                      <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm flex-shrink-0">
-                        {storeSettings.logo ? <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-cover p-1" /> : <span style={{ color: storeSettings.theme_color }} className="font-black text-xl italic">{storeSettings.name.charAt(0)}</span>}
+                      {/* 🚨 FIX: Increased Logo size to h-14/16 and removed inner padding for edge-to-edge fit */}
+                      <div className="h-14 w-14 md:h-16 md:w-16 rounded-xl bg-white flex items-center justify-center overflow-hidden border border-slate-200/50 shadow-sm flex-shrink-0">
+                        {storeSettings.logo ? <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-cover" /> : <span style={{ color: storeSettings.theme_color }} className="font-black text-xl italic">{storeSettings.name.charAt(0)}</span>}
                       </div>
                       <div className="overflow-hidden">
-                        <h1 className="text-xl md:text-2xl font-black italic text-slate-800 leading-tight truncate">{storeSettings.name}</h1>
-                        {storeSettings.tagline && <p className="text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5 truncate">{storeSettings.tagline}</p>}
+                        {/* 🚨 FIX: Dynamic Font Color based on Dark Theme */}
+                        <h1 className={`text-xl md:text-2xl font-black italic leading-tight truncate ${isDarkTheme ? 'text-white' : 'text-slate-800'}`}>{storeSettings.name}</h1>
+                        {storeSettings.tagline && <p className={`text-[10px] md:text-xs font-bold uppercase tracking-wider mt-0.5 truncate ${isDarkTheme ? 'text-slate-300' : 'text-slate-500'}`}>{storeSettings.tagline}</p>}
                       </div>
                     </div>
                     
@@ -373,7 +474,7 @@ function App() {
                 </header>
 
                 <div 
-                  className="sticky top-[81px] md:top-[97px] z-30 border-b border-slate-100/20 shadow-sm backdrop-blur-md transition-colors duration-300"
+                  className="sticky top-[81px] md:top-[97px] z-30 border-b border-slate-100/10 shadow-sm backdrop-blur-md transition-colors duration-300"
                   style={{ backgroundColor: storeSettings.menu_bg_type === 'image' ? headerBgWithOpacity : 'transparent' }}
                 >
                   <nav className="flex gap-3 md:gap-4 overflow-x-auto p-3 md:px-8 md:py-4 max-w-7xl mx-auto no-scrollbar">
@@ -391,8 +492,8 @@ function App() {
                   {filteredDishes.length === 0 ? (
                     <div className="flex flex-col items-center justify-center text-center py-20 px-4">
                       <span className="text-5xl grayscale opacity-50 mb-4">🍽️</span>
-                      <h3 className="text-2xl font-serif font-black text-slate-800 mb-2 italic">Menu is Brewing</h3>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chef is curating dishes for this category.</p>
+                      <h3 className={`text-2xl font-serif font-black mb-2 italic ${isDarkTheme ? 'text-white' : 'text-slate-800'}`}>Menu is Brewing</h3>
+                      <p className={`text-xs font-bold uppercase tracking-widest ${isDarkTheme ? 'text-slate-400' : 'text-slate-500'}`}>Chef is curating dishes for this category.</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 md:gap-6">
@@ -561,11 +662,11 @@ function App() {
                      <Plus size={16} /> Add More Items
                   </button>
 
-                  <div className="bg-slate-900 text-white p-6 md:p-8 rounded-[2rem] shadow-xl mb-8">
-                    <div className="space-y-3 mb-6 text-sm font-medium text-slate-300 border-b border-slate-700 pb-6">
+                  <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-100 mb-8">
+                    <div className="space-y-3 mb-6 text-sm font-medium text-slate-500 border-b border-slate-100 pb-6">
                       <div className="flex justify-between items-center">
                         <span>Item Total</span>
-                        <span>₹{subtotal.toFixed(2)}</span>
+                        <span className="font-black text-slate-800">₹{subtotal.toFixed(2)}</span>
                       </div>
                       {taxBreakdown.map((tax, idx) => (
                         <div key={idx} className="flex justify-between items-center text-xs text-slate-400">
@@ -575,7 +676,7 @@ function App() {
                       ))}
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="font-black tracking-widest uppercase text-sm">Grand Total</span>
+                      <span className="font-black text-slate-900 tracking-widest uppercase text-sm">Grand Total</span>
                       <span style={{ color: storeSettings.theme_color }} className="text-3xl font-black italic">₹{grandTotal}</span>
                     </div>
                   </div>
