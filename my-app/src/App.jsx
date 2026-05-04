@@ -46,7 +46,6 @@ function App() {
   const [editingCartItem, setEditingCartItem] = useState(null);
   const [storeSettings, setStoreSettings] = useState(null); 
 
-  // 🚨 THE FIX: Auto-redirect to menu if cart becomes empty on checkout page
   useEffect(() => {
     if (view === 'checkout' && cart.length === 0) {
       setView('menu');
@@ -367,7 +366,6 @@ function App() {
     );
   }
 
-  // 🚨 SMART COLOR DETECTOR: Checks if the background hex is a dark color
   const isDarkColor = (color) => {
     if (!color) return false;
     let hex = color.replace('#', '');
@@ -375,9 +373,8 @@ function App() {
     const r = parseInt(hex.substring(0, 2), 16) || 0;
     const g = parseInt(hex.substring(2, 4), 16) || 0;
     const b = parseInt(hex.substring(4, 6), 16) || 0;
-    // Calculate perceived brightness
     const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    return luma < 128; // If luma is less than 128, it's a dark background
+    return luma < 128; 
   };
 
   const isDarkTheme = storeSettings.menu_bg_type === 'color' ? isDarkColor(storeSettings.menu_bg_value) : false;
@@ -426,11 +423,12 @@ function App() {
       {view !== 'welcome' && (
         <div 
           className="w-full relative transition-colors duration-300"
-          // 🚨 FIX: Checkout and Waiter Screen now always have a clean light background for perfect readability
-          style={{ backgroundColor: view === 'menu' ? mainBgColor : '#f8fafc', minHeight: `${vh}px` }}
+          // 🚨 FIX: Now the background color applies to ALL screens (Menu, Checkout, Waiter)
+          style={{ backgroundColor: mainBgColor, minHeight: `${vh}px` }}
         >
           
-          {view === 'menu' && storeSettings.menu_bg_type === 'image' && storeSettings.menu_bg_value && (
+          {/* 🚨 FIX: Image background now renders on ALL screens if set */}
+          {storeSettings.menu_bg_type === 'image' && storeSettings.menu_bg_value && (
             <div 
               className="fixed top-0 left-0 right-0 z-0 pointer-events-none transition-opacity duration-300"
               style={{
@@ -454,12 +452,10 @@ function App() {
                 >
                   <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 md:gap-5 overflow-hidden">
-                      {/* 🚨 FIX: Increased Logo size to h-14/16 and removed inner padding for edge-to-edge fit */}
                       <div className="h-14 w-14 md:h-16 md:w-16 rounded-xl bg-white flex items-center justify-center overflow-hidden border border-slate-200/50 shadow-sm flex-shrink-0">
                         {storeSettings.logo ? <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-cover" /> : <span style={{ color: storeSettings.theme_color }} className="font-black text-xl italic">{storeSettings.name.charAt(0)}</span>}
                       </div>
                       <div className="overflow-hidden">
-                        {/* 🚨 FIX: Dynamic Font Color based on Dark Theme */}
                         <h1 className={`text-xl md:text-2xl font-black italic leading-tight truncate ${isDarkTheme ? 'text-white' : 'text-slate-800'}`}>{storeSettings.name}</h1>
                         {storeSettings.tagline && <p className={`text-[10px] md:text-xs font-bold uppercase tracking-wider mt-0.5 truncate ${isDarkTheme ? 'text-slate-300' : 'text-slate-500'}`}>{storeSettings.tagline}</p>}
                       </div>
@@ -610,8 +606,8 @@ function App() {
             {view === 'checkout' && (
               <div className="w-full flex-1 p-4 md:p-8 pb-32 overflow-y-auto relative bg-transparent">
                 <div className="max-w-2xl mx-auto">
-                  <button onClick={() => setView('menu')} className="flex items-center gap-1 text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6 transition-all drop-shadow-sm"><ChevronLeft size={16}/> Back to Menu</button>
-                  <h2 className="text-3xl font-black text-slate-900 mb-8 italic tracking-tighter drop-shadow-sm">Your Order</h2>
+                  <button onClick={() => setView('menu')} className={`flex items-center gap-1 text-[11px] font-black uppercase tracking-widest mb-6 transition-all drop-shadow-sm ${isDarkTheme ? 'text-white' : 'text-slate-800'}`}><ChevronLeft size={16}/> Back to Menu</button>
+                  <h2 className={`text-3xl font-black mb-8 italic tracking-tighter drop-shadow-sm ${isDarkTheme ? 'text-white' : 'text-slate-900'}`}>Your Order</h2>
                   
                   <div className="space-y-4 mb-4">
                      {cart.map(item => (
