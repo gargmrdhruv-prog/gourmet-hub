@@ -41,17 +41,11 @@ function App() {
 
   const [editingCartItem, setEditingCartItem] = useState(null);
 
-  const [storeSettings, setStoreSettings] = useState({
-    name: 'Loading...', logo: '', tagline: '', welcome_bg_url: '', taxes: [],
-    theme_color: '#F59E0B', theme_font: 'Poppins, sans-serif', theme_button: 'rounded-full',
-    menu_bg_type: 'color', menu_bg_value: '#f8fafc', menu_bg_opacity: 0.1,
-    header_bg_color: '#ffffff', menu_bg_position: 'center',
-    strict_table_mode: false
-  });
+  const [storeSettings, setStoreSettings] = useState(null); // Set to null initially
 
-  const currentURL = window.location.href; 
-
-  // 🚨 1. INITIAL LOAD & MIDNIGHT EXPIRY CHECK
+  const currentPath = window.location.pathname;
+  
+  // 🚨 1. INITIAL LOAD & MIDNIGHT EXPIRY CHECK (CLEAN LOGIC)
   useEffect(() => {
     const init = async () => {
       const savedUser = localStorage.getItem('admin_user');
@@ -60,10 +54,9 @@ function App() {
       
       let isValidSession = false;
 
-      // Check if session exists and is valid
+      // Check Session Validity
       if (savedUser) {
         if (sessionExpiry && now > parseInt(sessionExpiry)) {
-          // Time has passed Midnight - Expire it!
           localStorage.removeItem('admin_user');
           localStorage.removeItem('admin_session_expiry');
           console.log("Session expired at midnight.");
@@ -77,17 +70,16 @@ function App() {
         }
       }
 
-      // 🚨 THE FIX: ADMIN FAST-TRACK (No Customer Menu Fetching on Admin Pages)
-      const currentPath = window.location.pathname;
+      // If it's an admin route, just set user and stop. No need to fetch customer menu.
       if (currentPath.startsWith('/admin') || currentPath.startsWith('/super-admin')) {
-        if (isValidSession) {
-          setUser(JSON.parse(savedUser));
-        }
-        setLoading(false); // Stop spinner instantly
-        return; // Exit here, do NOT fetch customer menu data
+         if (isValidSession) {
+           setUser(JSON.parse(savedUser));
+         }
+         setLoading(false); 
+         return; 
       }
 
-      // --- Customer Menu Logic Below ---
+      // If it's the customer route, setup ID and fetch menu.
       let activeRestId = '1';
       const urlParams = new URLSearchParams(window.location.search);
       const urlRestId = urlParams.get('rest');
@@ -104,13 +96,11 @@ function App() {
       }
 
       setRestaurantId(activeRestId);
-      
       await fetchInitialData(activeRestId);
       recordScan(activeRestId);
-      setLoading(false); 
     };
     init();
-  }, []); 
+  }, [currentPath]); // Added currentPath to dependency array
 
   useEffect(() => { localStorage.setItem('gourmet_cart', JSON.stringify(cart)); }, [cart]);
   useEffect(() => { localStorage.setItem('gourmet_table', tableNumber); }, [tableNumber]);
@@ -118,8 +108,10 @@ function App() {
   useEffect(() => { localStorage.setItem('gourmet_order_id', orderId); }, [orderId]);
   useEffect(() => { localStorage.setItem('gourmet_rest_id', restaurantId); }, [restaurantId]);
 
-  // 🚨 2. REAL-TIME AUTO-KICK AT EXACTLY 12:00 AM
+  // 🚨 2. REAL-TIME AUTO-KICK
   useEffect(() => {
+    if (!currentPath.startsWith('/admin')) return; // Only run on admin pages
+
     const interval = setInterval(() => {
       const sessionExpiry = localStorage.getItem('admin_session_expiry');
       const now = new Date().getTime();
@@ -128,14 +120,12 @@ function App() {
         localStorage.removeItem('admin_user');
         localStorage.removeItem('admin_session_expiry');
         setUser(null);
-        if (window.location.href.includes('/admin')) {
-          window.location.href = '/admin-login';
-        }
+        window.location.href = '/admin-login';
       }
     }, 60000); 
     
     return () => clearInterval(interval);
-  }, []);
+  }, [currentPath]);
 
   async function recordScan(restId) {
     const sessionActive = sessionStorage.getItem('scan_recorded');
@@ -152,7 +142,6 @@ function App() {
   }
 
   async function fetchInitialData(restId) {
-    setLoading(true);
     try {
       const { data: catData } = await supabase.from('subcategories').select('*').eq('restaurant_id', restId);
       const { data: dishData } = await supabase.from('dishes').select('*').eq('restaurant_id', restId);
@@ -202,7 +191,7 @@ function App() {
     } catch (err) {
       console.error('Fetch error:', err);
     } finally {
-      setLoading(false);
+      setLoading(false); // Stop loading ONLY after data is fetched
     }
   }
 
@@ -297,7 +286,7 @@ function App() {
   };
 
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
-  const activeTaxes = storeSettings.taxes?.filter(tax => tax.active) || [];
+  const activeTaxes = storeSettings?.taxes?.filter(tax => tax.active) || [];
   const taxBreakdown = activeTaxes.map(tax => ({
     name: tax.name, rate: tax.rate, amount: subtotal * (tax.rate / 100)
   }));
@@ -348,27 +337,34 @@ function App() {
     setView('menu');
   };
 
-  if (loading) {
+  // 🚨 3. ADMIN ROUTING BLOCK (HARD RETURN)
+  if (currentPath.includes('super-admin-login')) return <SuperAdminLogin />;
+  if (currentPath.includes('super-admin')) return localStorage.getItem('super_admin_auth') === 'true' ? <SuperAdminDashboard /> : <SuperAdminLogin />;
+  
+  if (currentPath.includes('admin-login')) {
+    if (user) { window.location.href = '/admin'; return null; }
+    // Clean return of AdminLogin without any layout interference
     return (
-      <div className="h-screen bg-slate-900 flex flex-col items-center justify-center text-white gap-4">
-         <div className="animate-spin rounded-full h-10 w-10 border-b-4 border-orange-500" style={{ borderBottomColor: storeSettings.theme_color }}></div>
-         <p className="text-sm font-bold text-slate-400 uppercase">Loading Menu...</p>
-      </div>
+       <div className="min-h-screen bg-slate-50 flex flex-col justify-center">
+         <AdminLogin onLoginSuccess={(u) => { setUser(u); window.location.href = '/admin'; }} />
+       </div>
     );
   }
-
-  // 🚨 ROUTING BLOCK
-  if (currentURL.includes('super-admin-login')) return <SuperAdminLogin />;
-  if (currentURL.includes('super-admin')) return localStorage.getItem('super_admin_auth') === 'true' ? <SuperAdminDashboard /> : <SuperAdminLogin />;
-  
-  if (currentURL.includes('admin-login')) {
-    if (user) { window.location.href = '/admin'; return null; }
-    return <AdminLogin onLoginSuccess={(u) => { setUser(u); window.location.href = '/admin'; }} />;
-  }
-  if (currentURL.includes('admin/settings')) return <Settings />;
-  if (currentURL.includes('/admin')) {
+  if (currentPath.includes('admin/settings')) return <Settings />;
+  if (currentPath.includes('/admin')) {
     if (!user) { window.location.href = '/admin-login'; return null; }
     return <AdminDashboard />;
+  }
+
+  // 🚨 4. LOADING STATE FOR CUSTOMER MENU
+  // We only show this spinner for the customer menu AFTER making sure it's not an admin route
+  if (loading || !storeSettings) {
+    return (
+      <div className="h-screen bg-slate-900 flex flex-col items-center justify-center text-white gap-4">
+         <div className="animate-spin rounded-full h-10 w-10 border-b-4 border-orange-500"></div>
+         <p className="text-sm font-bold text-slate-400 uppercase">Loading...</p>
+      </div>
+    );
   }
 
   const getRgba = (hex, alpha) => {
