@@ -51,12 +51,6 @@ function App() {
 
   const currentURL = window.location.href; 
 
-  useEffect(() => { localStorage.setItem('gourmet_cart', JSON.stringify(cart)); }, [cart]);
-  useEffect(() => { localStorage.setItem('gourmet_table', tableNumber); }, [tableNumber]);
-  useEffect(() => { localStorage.setItem('gourmet_placed_items', JSON.stringify(placedOrderItems)); }, [placedOrderItems]);
-  useEffect(() => { localStorage.setItem('gourmet_order_id', orderId); }, [orderId]);
-  useEffect(() => { localStorage.setItem('gourmet_rest_id', restaurantId); }, [restaurantId]);
-
   // 🚨 1. INITIAL LOAD & MIDNIGHT EXPIRY CHECK
   useEffect(() => {
     const init = async () => {
@@ -75,7 +69,6 @@ function App() {
           console.log("Session expired at midnight.");
         } else {
           isValidSession = true;
-          // Fallback: If legacy user has no expiry, set it to tonight's midnight
           if (!sessionExpiry) {
             const midnight = new Date();
             midnight.setHours(24, 0, 0, 0);
@@ -84,35 +77,33 @@ function App() {
         }
       }
 
+      // 🚨 THE FIX: ADMIN FAST-TRACK (No Customer Menu Fetching on Admin Pages)
+      const currentPath = window.location.pathname;
+      if (currentPath.startsWith('/admin') || currentPath.startsWith('/super-admin')) {
+        if (isValidSession) {
+          setUser(JSON.parse(savedUser));
+        }
+        setLoading(false); // Stop spinner instantly
+        return; // Exit here, do NOT fetch customer menu data
+      }
+
+      // --- Customer Menu Logic Below ---
       let activeRestId = '1';
       const urlParams = new URLSearchParams(window.location.search);
       const urlRestId = urlParams.get('rest');
       const urlTableId = urlParams.get('table');
 
-      // Set Table Number if it exists in the QR scan URL
       if (urlTableId) {
         setTableNumber(urlTableId);
       }
 
       if (urlRestId) {
         activeRestId = urlRestId;
-      } else if (isValidSession) {
-        const currentUser = JSON.parse(savedUser);
-        activeRestId = currentUser.id;
       } else {
         activeRestId = localStorage.getItem('gourmet_rest_id') || '1';
       }
 
       setRestaurantId(activeRestId);
-
-      // Handle Authentication Routing
-      if (isValidSession) {
-        setUser(JSON.parse(savedUser));
-      } else if (window.location.href.includes('/admin') && !window.location.href.includes('admin-login')) {
-        // Force redirect to login if session is expired or missing
-        window.location.href = '/admin-login';
-        return;
-      }
       
       await fetchInitialData(activeRestId);
       recordScan(activeRestId);
@@ -121,13 +112,18 @@ function App() {
     init();
   }, []); 
 
+  useEffect(() => { localStorage.setItem('gourmet_cart', JSON.stringify(cart)); }, [cart]);
+  useEffect(() => { localStorage.setItem('gourmet_table', tableNumber); }, [tableNumber]);
+  useEffect(() => { localStorage.setItem('gourmet_placed_items', JSON.stringify(placedOrderItems)); }, [placedOrderItems]);
+  useEffect(() => { localStorage.setItem('gourmet_order_id', orderId); }, [orderId]);
+  useEffect(() => { localStorage.setItem('gourmet_rest_id', restaurantId); }, [restaurantId]);
+
   // 🚨 2. REAL-TIME AUTO-KICK AT EXACTLY 12:00 AM
   useEffect(() => {
     const interval = setInterval(() => {
       const sessionExpiry = localStorage.getItem('admin_session_expiry');
       const now = new Date().getTime();
       
-      // Agar admin laptop open chhod de, toh theek 12 baje ye code use logout kar dega
       if (sessionExpiry && now > parseInt(sessionExpiry)) {
         localStorage.removeItem('admin_user');
         localStorage.removeItem('admin_session_expiry');
@@ -136,7 +132,7 @@ function App() {
           window.location.href = '/admin-login';
         }
       }
-    }, 60000); // Checks every 1 minute
+    }, 60000); 
     
     return () => clearInterval(interval);
   }, []);
@@ -285,24 +281,6 @@ function App() {
     setSelectedVariants([]); 
   };
 
-  const updateSheetRecQty = (dish, variant, change) => {
-    const key = variant ? `${dish.id}-${variant.name}` : `${dish.id}-regular`;
-    setSheetRecs(prev => {
-      const currentQty = prev[key]?.qty || 0;
-      const newQty = currentQty + change;
-      
-      if (newQty <= 0) {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      }
-      return {
-        ...prev,
-        [key]: { dish, variant, qty: newQty }
-      };
-    });
-  };
-
   const getSheetTotals = () => {
     if (!selectedDish) return { items: 0, price: 0 };
     
@@ -379,8 +357,10 @@ function App() {
     );
   }
 
+  // 🚨 ROUTING BLOCK
   if (currentURL.includes('super-admin-login')) return <SuperAdminLogin />;
   if (currentURL.includes('super-admin')) return localStorage.getItem('super_admin_auth') === 'true' ? <SuperAdminDashboard /> : <SuperAdminLogin />;
+  
   if (currentURL.includes('admin-login')) {
     if (user) { window.location.href = '/admin'; return null; }
     return <AdminLogin onLoginSuccess={(u) => { setUser(u); window.location.href = '/admin'; }} />;

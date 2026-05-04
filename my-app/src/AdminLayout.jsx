@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, UtensilsCrossed, BarChart3, Settings, LogOut, ExternalLink, Menu, X, Store } from 'lucide-react'; 
+import { LayoutDashboard, ShoppingCart, UtensilsCrossed, BarChart3, Settings, LogOut, ExternalLink, Menu, X } from 'lucide-react'; 
 
 const AdminLayout = ({ children }) => {
   const [logo, setLogo] = useState('');
@@ -9,14 +9,17 @@ const AdminLayout = ({ children }) => {
   const [adminId, setAdminId] = useState(1);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
   const location = useLocation();
-  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchSettings = async () => {
       const savedUser = localStorage.getItem('admin_user');
+      
+      // 🚨 THE FIX: Safe Routing Check to prevent infinite loops and blank screens
       if (!savedUser) {
-        window.location.href = '/admin-login';
-        return;
+        if (!window.location.pathname.includes('admin-login')) {
+          window.location.href = '/admin-login';
+        }
+        return; 
       }
       
       const userObj = JSON.parse(savedUser);
@@ -40,8 +43,8 @@ const AdminLayout = ({ children }) => {
 
   const menuItems = [
     { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/admin' },
-    { name: 'Live Orders', icon: <ShoppingCart size={20} />, path: '/admin/orders' },
-    { name: 'Menu Management', icon: <UtensilsCrossed size={20} />, path: '/admin/menu' },
+    { name: 'Live Display', icon: <ShoppingCart size={20} />, path: '/admin/orders' },
+    { name: 'Menu Editor', icon: <UtensilsCrossed size={20} />, path: '/admin/menu' },
     { name: 'Analytics', icon: <BarChart3 size={20} />, path: '/admin/analytics' },
     { name: 'Settings', icon: <Settings size={20} />, path: '/admin/settings' },
   ];
@@ -58,7 +61,7 @@ const AdminLayout = ({ children }) => {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-slate-50">
       
       {/* MOBILE OVERLAY */}
       {isSidebarOpen && (
@@ -69,13 +72,10 @@ const AdminLayout = ({ children }) => {
       )}
 
       {/* --- SIDEBAR --- */}
-      <aside className={`fixed inset-y-0 left-0 w-64 bg-slate-900 text-white flex flex-col z-50 shadow-2xl shadow-slate-900/40 border-r border-slate-800 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+      <aside className={`fixed inset-y-0 left-0 w-64 bg-slate-900 text-white flex flex-col z-50 shadow-2xl border-r border-slate-800 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         
-        {/* 🚨 THE FIX: LOGO & NAME SECTION (Responsive & Safe from Overflow) */}
-        <div className="p-6 flex items-center justify-between border-b border-slate-800">
+        <div className="p-6 flex items-center justify-between border-b border-slate-800 bg-slate-950/30">
           <div className="flex items-center gap-3.5 w-full overflow-hidden">
-            
-            {/* Logo Container - shrink-0 ensures it never gets squeezed */}
             <div className="h-10 w-10 rounded-2xl bg-white flex items-center justify-center overflow-hidden border border-orange-500/20 shadow-inner shrink-0">
               {logo ? (
                 <img src={logo} alt="brand logo" className="h-full w-full object-contain p-0.5" />
@@ -83,15 +83,11 @@ const AdminLayout = ({ children }) => {
                 <span className="font-black text-xl text-orange-500 italic">{restName.charAt(0)}</span>
               )}
             </div>
-            
-            {/* Text Container - min-w-0 prevents text from pushing layout limits */}
             <div className="flex-1 min-w-0">
               <h1 className="text-sm font-black italic text-white leading-tight truncate">{restName}</h1>
               <p className="text-[9px] text-gray-400 uppercase tracking-widest mt-1">Admin Portal</p>
             </div>
           </div>
-
-          {/* Close button inside mobile sidebar */}
           <button className="md:hidden text-slate-400 hover:text-white shrink-0 ml-2" onClick={() => setIsSidebarOpen(false)}>
             <X size={20} />
           </button>
@@ -117,7 +113,7 @@ const AdminLayout = ({ children }) => {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-800 space-y-2">
+        <div className="p-4 border-t border-slate-800 space-y-2 bg-slate-950/30">
           <a 
             href={`/?rest=${adminId}`} 
             target="_blank" 
@@ -142,8 +138,8 @@ const AdminLayout = ({ children }) => {
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 md:ml-64 flex flex-col min-h-screen">
         
-        {/* --- TOP HEADER --- */}
-        <header className="bg-white/95 backdrop-blur-sm h-16 border-b border-gray-100 flex items-center justify-between px-4 md:px-8 sticky top-0 z-20 shadow-sm">
+        {/* TOP HEADER */}
+        <header className="bg-white/95 backdrop-blur-sm h-16 border-b border-slate-200/60 flex items-center justify-between px-4 md:px-8 sticky top-0 z-20 shadow-sm">
           <div className="flex items-center gap-3 min-w-0">
             <button 
               className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
@@ -158,13 +154,13 @@ const AdminLayout = ({ children }) => {
           
           <div className="flex items-center gap-3 md:gap-4 shrink-0">
             <div className="text-right hidden sm:block max-w-[150px] md:max-w-[200px]"> 
-              <p className="text-xs font-extrabold text-slate-950 tracking-tight truncate">{restName}</p>
-              <p className="text-[10px] text-green-500 font-bold uppercase tracking-wider flex items-center gap-1 justify-end">
-                <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span> Online
+              <p className="text-xs font-extrabold text-slate-900 tracking-tight truncate">{restName}</p>
+              <p className="text-[10px] text-green-500 font-bold uppercase tracking-wider flex items-center gap-1 justify-end mt-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span> App Active
               </p>
             </div>
             
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 border-2 border-slate-50 shadow-inner overflow-hidden flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-100 border-2 border-slate-50 shadow-sm overflow-hidden flex items-center justify-center shrink-0">
               {logo ? (
                 <img src={logo} alt="admin profile" className="h-full w-full object-cover bg-white" />
               ) : (
