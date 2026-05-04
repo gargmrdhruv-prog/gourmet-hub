@@ -45,7 +45,8 @@ function App() {
     name: 'Loading...', logo: '', tagline: '', welcome_bg_url: '', taxes: [],
     theme_color: '#F59E0B', theme_font: 'Poppins, sans-serif', theme_button: 'rounded-full',
     menu_bg_type: 'color', menu_bg_value: '#f8fafc', menu_bg_opacity: 0.1,
-    header_bg_color: '#ffffff', menu_bg_position: 'center'
+    header_bg_color: '#ffffff', menu_bg_position: 'center',
+    strict_table_mode: false
   });
 
   const currentURL = window.location.href; 
@@ -86,6 +87,12 @@ function App() {
       let activeRestId = '1';
       const urlParams = new URLSearchParams(window.location.search);
       const urlRestId = urlParams.get('rest');
+      const urlTableId = urlParams.get('table');
+
+      // Set Table Number if it exists in the QR scan URL
+      if (urlTableId) {
+        setTableNumber(urlTableId);
+      }
 
       if (urlRestId) {
         activeRestId = urlRestId;
@@ -173,14 +180,16 @@ function App() {
           menu_bg_value: settingsData.menu_bg_value || '#f8fafc',
           menu_bg_opacity: settingsData.menu_bg_opacity ?? 0.1,
           header_bg_color: settingsData.header_bg_color || '#ffffff',
-          menu_bg_position: settingsData.menu_bg_position || 'center'
+          menu_bg_position: settingsData.menu_bg_position || 'center',
+          strict_table_mode: settingsData.strict_table_mode || false
         });
       } else {
         setStoreSettings({ 
           name: 'Welcome to Our Menu', logo: '', tagline: '', welcome_bg_url: '', taxes: [], 
           theme_color: '#F59E0B', theme_font: 'Poppins, sans-serif', theme_button: 'rounded-full',
           menu_bg_type: 'color', menu_bg_value: '#f8fafc', menu_bg_opacity: 0.1,
-          header_bg_color: '#ffffff', menu_bg_position: 'center'
+          header_bg_color: '#ffffff', menu_bg_position: 'center',
+          strict_table_mode: false
         });
       }
 
@@ -683,13 +692,18 @@ function App() {
                   </div>
 
                   <div className="bg-white p-6 rounded-[2rem] shadow-sm mb-8 border border-slate-100">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest block text-center mb-4">Table Number (Optional)</label>
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest block text-center mb-4">
+                      Table Number {storeSettings.strict_table_mode ? '(Locked)' : '(Optional)'}
+                    </label>
                     <input 
-                      type="number" 
-                      min="1" 
-                      step="1"
-                      placeholder="Eg: 5" 
-                      className="w-full text-center text-4xl font-black bg-slate-50 p-4 rounded-2xl text-slate-900 border-none outline-none mb-3 transition-all" 
+                      type="text" 
+                      disabled={storeSettings.strict_table_mode}
+                      placeholder={storeSettings.strict_table_mode ? "Not Assigned" : "Eg: 5"} 
+                      className={`w-full text-center text-4xl font-black p-4 rounded-2xl mb-3 transition-all ${
+                        storeSettings.strict_table_mode 
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-2 border-dashed border-slate-200 outline-none' 
+                          : 'bg-slate-50 text-slate-900 border-none outline-none focus:ring-2 focus:ring-slate-200'
+                      }`} 
                       value={tableNumber} 
                       onKeyPress={(e) => {
                         if (e.key === '-' || e.key === 'e' || e.key === '.') {
@@ -697,13 +711,22 @@ function App() {
                         }
                       }}
                       onChange={(e) => {
+                        if (storeSettings.strict_table_mode) return;
                         const val = e.target.value;
                         if (val === '' || parseInt(val) > 0) {
                           setTableNumber(val);
                         }
                       }} 
                     />
-                    <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">Leave blank for Takeaway / Parcel</p>
+                    {storeSettings.strict_table_mode ? (
+                      <p className="text-[10px] text-orange-500 text-center font-bold uppercase tracking-widest mt-2">
+                        Table Number is locked by Restaurant
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest mt-2">
+                        Leave blank for Takeaway / Parcel
+                      </p>
+                    )}
                   </div>
 
                   <button onClick={handleCallWaiter} disabled={loading} className={`w-full bg-slate-900 text-white py-5 ${storeSettings.theme_button} font-black text-sm shadow-xl uppercase tracking-widest flex justify-center items-center gap-2 hover:bg-black active:scale-95 transition-all disabled:opacity-50`}>

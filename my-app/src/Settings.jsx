@@ -3,17 +3,18 @@ import AdminLayout from './AdminLayout';
 import { supabase } from './supabase';
 import { 
   Store, Phone, Clock, MapPin, Upload, Loader2, Save, Type, 
-  Receipt, Plus, Trash2, QrCode, Copy, Download, ExternalLink, Image as ImageIcon 
+  Receipt, Plus, Trash2, QrCode, Copy, Download, ExternalLink, Image as ImageIcon, ToggleLeft, ToggleRight 
 } from 'lucide-react';
 
 const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [adminUser, setAdminUser] = useState(null);
-// 🚨 MENU BACKGROUND STATES
+
+  // MENU BACKGROUND STATES
   const [menuBgType, setMenuBgType] = useState('color'); 
   const [menuBgValue, setMenuBgValue] = useState('#f8fafc');
-  const [menuBgFile, setMenuBgFile] = useState(null); // File upload state
+  const [menuBgFile, setMenuBgFile] = useState(null); 
   const [menuBgOpacity, setMenuBgOpacity] = useState(0.1);
   const [headerBgColor, setHeaderBgColor] = useState('#ffffff');
   const [menuBgPosition, setMenuBgPosition] = useState('center');
@@ -28,9 +29,13 @@ const Settings = () => {
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState(null);
   
-  // 🚨 Welcome Background States
+  // Welcome Background States
   const [welcomeBgUrl, setWelcomeBgUrl] = useState('');
   const [welcomeBgFile, setWelcomeBgFile] = useState(null);
+
+  // 🚨 NEW: Strict Mode & Specific Table QR State
+  const [strictTableMode, setStrictTableMode] = useState(false);
+  const [tableQRInput, setTableQRInput] = useState('');
 
   useEffect(() => {
     const savedUser = localStorage.getItem('admin_user');
@@ -57,12 +62,13 @@ const Settings = () => {
         setOpenTime(data.opening_time || '');
         setCloseTime(data.closing_time || '');
         setLogoUrl(data.logo_url || '');
-        setWelcomeBgUrl(data.welcome_bg_url || ''); // Fetching Background
+        setWelcomeBgUrl(data.welcome_bg_url || ''); 
         setMenuBgType(data.menu_bg_type || 'color');
         setMenuBgValue(data.menu_bg_value || '#f8fafc');
         setMenuBgOpacity(data.menu_bg_opacity ?? 0.1);
         setHeaderBgColor(data.header_bg_color || '#ffffff');
         setMenuBgPosition(data.menu_bg_position || 'center');
+        setStrictTableMode(data.strict_table_mode || false); // Load Strict Mode
         
         setTaxes(data.taxes || [
           { id: "cgst", name: "CGST", rate: 2.5, active: false },
@@ -114,14 +120,14 @@ const Settings = () => {
         opening_time: safeOpenTime,
         closing_time: safeCloseTime,
         logo_url: finalLogoUrl, 
-        welcome_bg_url: finalBgUrl, // Saving bg
+        welcome_bg_url: finalBgUrl, 
         taxes: taxes,
         menu_bg_type: menuBgType,
         menu_bg_value: finalMenuBgValue,
         menu_bg_opacity: menuBgOpacity,
         header_bg_color: headerBgColor,
-        menu_bg_position: menuBgPosition
-        
+        menu_bg_position: menuBgPosition,
+        strict_table_mode: strictTableMode // Save Strict Mode
       };
 
       const { data: existing, error: fetchErr } = await supabase
@@ -154,11 +160,13 @@ const Settings = () => {
     }
   };
 
-  const menuLink = adminUser ? `${window.location.origin}/?rest=${adminUser.id}` : '';
-  const qrCodeUrl = adminUser ? `https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=${encodeURIComponent(menuLink)}` : '';
+  // 🚨 Dynamic QR Logic based on Table Number
+  const baseMenuLink = adminUser ? `${window.location.origin}/?rest=${adminUser.id}` : '';
+  const specificMenuLink = tableQRInput && adminUser ? `${baseMenuLink}&table=${tableQRInput}` : baseMenuLink;
+  const qrCodeUrl = adminUser ? `https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=${encodeURIComponent(specificMenuLink)}` : '';
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(menuLink);
+    navigator.clipboard.writeText(specificMenuLink);
     alert("✅ Menu link copied to clipboard!");
   };
 
@@ -169,7 +177,7 @@ const Settings = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${name || 'Restaurant'}-Menu-QR.png`;
+      link.download = `${name || 'Restaurant'}-Table-${tableQRInput || 'Universal'}-QR.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -190,9 +198,14 @@ const Settings = () => {
   return (
     <AdminLayout>
       <div className="max-w-4xl mx-auto w-full">
-        <div className="mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800">Restaurant Settings ⚙️</h1>
-          <p className="text-slate-500 text-xs md:text-sm mt-1">Manage your storefront details for {adminUser?.name}</p>
+        <div className="mb-6 md:mb-8 flex justify-between items-end">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-800">Restaurant Settings ⚙️</h1>
+            <p className="text-slate-500 text-xs md:text-sm mt-1">Manage your storefront details for {adminUser?.name}</p>
+          </div>
+          <button onClick={handleSave} disabled={saving} className="hidden md:flex bg-orange-500 text-white px-6 py-2.5 rounded-xl font-black text-sm uppercase tracking-wider items-center gap-2 hover:bg-orange-600 transition-all shadow-lg active:scale-95">
+            {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />} Save All
+          </button>
         </div>
 
         <form onSubmit={handleSave} className="space-y-6 md:space-y-8">
@@ -205,120 +218,117 @@ const Settings = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            {/* 🚨 NEW: MENU BACKGROUND SETTINGS */}
-          {/* 🚨 MENU BACKGROUND SETTINGS */}
-          <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100 mt-6">
-            <h2 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2 border-b pb-3">
-              <ImageIcon size={18} className="text-purple-500 md:w-5 md:h-5" /> Menu Background
-            </h2>
-            
-            <div className="space-y-6">
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="bgType" checked={menuBgType === 'color'} onChange={() => setMenuBgType('color')} className="accent-purple-500 w-4 h-4" />
-                  <span className="text-sm font-bold text-slate-700">Solid Color</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="bgType" checked={menuBgType === 'image'} onChange={() => setMenuBgType('image')} className="accent-purple-500 w-4 h-4" />
-                  <span className="text-sm font-bold text-slate-700">Upload Image</span>
-                </label>
-              </div>
-
-              {menuBgType === 'color' ? (
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Full Page Color Fill</label>
-                  <div className="flex gap-3">
-                    <input type="color" value={menuBgValue} onChange={(e) => setMenuBgValue(e.target.value)} className="h-10 w-14 rounded cursor-pointer" />
-                    <input type="text" value={menuBgValue} onChange={(e) => setMenuBgValue(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2 font-bold text-slate-700 outline-none" />
+              {/* MENU BACKGROUND SETTINGS */}
+              <div className="col-span-1 md:col-span-2 bg-slate-50 p-5 md:p-6 rounded-2xl shadow-inner border border-slate-200">
+                <h2 className="text-sm md:text-base font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+                  <ImageIcon size={16} className="text-purple-500" /> Menu Background
+                </h2>
+                
+                <div className="space-y-6">
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="bgType" checked={menuBgType === 'color'} onChange={() => setMenuBgType('color')} className="accent-purple-500 w-4 h-4" />
+                      <span className="text-sm font-bold text-slate-700">Solid Color</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="bgType" checked={menuBgType === 'image'} onChange={() => setMenuBgType('image')} className="accent-purple-500 w-4 h-4" />
+                      <span className="text-sm font-bold text-slate-700">Upload Image</span>
+                    </label>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-5 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Upload Background Image</label>
-                    <div className="flex items-center gap-4">
-                      <div className="h-16 w-24 md:h-20 md:w-32 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-white overflow-hidden relative shrink-0 shadow-inner">
-                        {menuBgFile ? (
-                          <img src={URL.createObjectURL(menuBgFile)} className="w-full h-full object-cover" style={{ objectPosition: menuBgPosition }} />
-                        ) : menuBgValue && menuBgValue.startsWith('http') ? (
-                          <img src={menuBgValue} className="w-full h-full object-cover" style={{ objectPosition: menuBgPosition }} />
-                        ) : (
-                          <span className="text-[9px] text-slate-400 font-bold">No Image</span>
-                        )}
-                      </div>
-                      <div className="relative w-full">
-                        <input type="file" accept="image/*" onChange={(e) => setMenuBgFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                        <button type="button" className="w-full bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 text-xs hover:border-purple-500 transition-all shadow-sm"><Upload size={14} /> Choose File</button>
+
+                  {menuBgType === 'color' ? (
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Full Page Color Fill</label>
+                      <div className="flex gap-3">
+                        <input type="color" value={menuBgValue} onChange={(e) => setMenuBgValue(e.target.value)} className="h-10 w-14 rounded cursor-pointer" />
+                        <input type="text" value={menuBgValue} onChange={(e) => setMenuBgValue(e.target.value)} className="flex-1 bg-white border border-slate-200 rounded-xl p-2 font-bold text-slate-700 outline-none" />
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-5 bg-white p-4 rounded-xl border border-slate-100">
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Upload Background Image</label>
+                        <div className="flex items-center gap-4">
+                          <div className="h-16 w-24 md:h-20 md:w-32 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden relative shrink-0">
+                            {menuBgFile ? (
+                              <img src={URL.createObjectURL(menuBgFile)} className="w-full h-full object-cover" style={{ objectPosition: menuBgPosition }} />
+                            ) : menuBgValue && menuBgValue.startsWith('http') ? (
+                              <img src={menuBgValue} className="w-full h-full object-cover" style={{ objectPosition: menuBgPosition }} />
+                            ) : (
+                              <span className="text-[9px] text-slate-400 font-bold">No Image</span>
+                            )}
+                          </div>
+                          <div className="relative w-full">
+                            <input type="file" accept="image/*" onChange={(e) => setMenuBgFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                            <button type="button" className="w-full bg-slate-50 border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 text-xs hover:border-purple-500 transition-all"><Upload size={14} /> Choose File</button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Focus Area</label>
+                        <div className="flex gap-2">
+                          {['top', 'center', 'bottom'].map(pos => (
+                            <button type="button" key={pos} onClick={() => setMenuBgPosition(pos)} className={`flex-1 py-2 rounded-lg text-xs font-bold capitalize transition-all border ${menuBgPosition === pos ? 'bg-purple-100 border-purple-500 text-purple-700 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}>
+                              {pos}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Header Color (Top Bar)</label>
+                        <div className="flex gap-3">
+                          <input type="color" value={headerBgColor} onChange={(e) => setHeaderBgColor(e.target.value)} className="h-10 w-14 rounded cursor-pointer" />
+                          <input type="text" value={headerBgColor} onChange={(e) => setHeaderBgColor(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2 font-bold text-slate-700 outline-none" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Focus Area (Which portion to show?)</label>
-                    <div className="flex gap-2">
-                      {['top', 'center', 'bottom'].map(pos => (
-                        <button type="button" key={pos} onClick={() => setMenuBgPosition(pos)} className={`flex-1 py-2 rounded-lg text-xs font-bold capitalize transition-all border ${menuBgPosition === pos ? 'bg-purple-100 border-purple-500 text-purple-700 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                          {pos}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-200">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Header & Top Bar Color</label>
-                    <div className="flex gap-3">
-                      <input type="color" value={headerBgColor} onChange={(e) => setHeaderBgColor(e.target.value)} className="h-10 w-14 rounded cursor-pointer" />
-                      <input type="text" value={headerBgColor} onChange={(e) => setHeaderBgColor(e.target.value)} className="flex-1 bg-white border border-slate-200 rounded-xl p-2 font-bold text-slate-700 outline-none" />
-                    </div>
-                    <p className="text-[9px] text-slate-400 font-bold mt-1.5">*This color will cover the top menu bar so it doesn't overlap with your image.</p>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex justify-between">
+                      <span>Background Visibility (Opacity)</span>
+                      <span className="text-purple-600">{Math.round(menuBgOpacity * 100)}%</span>
+                    </label>
+                    <input 
+                      type="range" min="0" max="1" step="0.05" 
+                      value={menuBgOpacity} 
+                      onChange={(e) => setMenuBgOpacity(parseFloat(e.target.value))} 
+                      className="w-full accent-purple-500 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                    />
                   </div>
                 </div>
-              )}
-
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex justify-between">
-                  <span>Background Visibility (Opacity)</span>
-                  <span className="text-purple-600">{Math.round(menuBgOpacity * 100)}%</span>
-                </label>
-                <input 
-                  type="range" min="0" max="1" step="0.05" 
-                  value={menuBgOpacity} 
-                  onChange={(e) => setMenuBgOpacity(parseFloat(e.target.value))} 
-                  className="w-full accent-purple-500 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                />
               </div>
-            </div>
-          </div>
               
               {/* Logo Upload */}
-              <div className="col-span-1 border border-slate-100 p-4 rounded-2xl bg-slate-50/50">
+              <div className="col-span-1 border border-slate-100 p-4 rounded-2xl bg-white">
                 <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Restaurant Logo</label>
                 <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-white overflow-hidden relative shrink-0">
+                  <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden relative shrink-0">
                     {logoFile ? <img src={URL.createObjectURL(logoFile)} className="h-full w-full object-contain p-1" /> : logoUrl ? <img src={logoUrl} className="h-full w-full object-contain p-1" /> : <span className="text-[9px] text-slate-400 font-bold">No Logo</span>}
                   </div>
                   <div className="relative w-full">
                     <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                    <button type="button" className="w-full bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 text-xs hover:border-orange-500 transition-all"><Upload size={14} /> Upload Logo</button>
+                    <button type="button" className="w-full bg-slate-50 border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 text-xs hover:border-orange-500 transition-all"><Upload size={14} /> Upload Logo</button>
                   </div>
                 </div>
-                <input type="text" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="Or paste logo URL here" className="mt-3 w-full bg-white border border-slate-200 rounded-xl p-2 text-xs font-medium text-slate-600 outline-none focus:border-orange-500" />
+                <input type="text" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="Or paste logo URL here" className="mt-3 w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-medium text-slate-600 outline-none focus:border-orange-500" />
               </div>
 
-              {/* 🚨 UPDATED: Welcome Background Upload & URL */}
-              <div className="col-span-1 border border-slate-100 p-4 rounded-2xl bg-slate-50/50">
+              {/* Welcome Background Upload */}
+              <div className="col-span-1 border border-slate-100 p-4 rounded-2xl bg-white">
                 <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Menu Welcome Background</label>
                 <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-white overflow-hidden relative shrink-0">
+                  <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden relative shrink-0">
                     {welcomeBgFile ? <img src={URL.createObjectURL(welcomeBgFile)} className="h-full w-full object-cover" /> : welcomeBgUrl ? <img src={welcomeBgUrl} className="h-full w-full object-cover" /> : <ImageIcon className="text-slate-300" size={24}/>}
                   </div>
                   <div className="relative w-full">
                     <input type="file" accept="image/*" onChange={(e) => setWelcomeBgFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                    <button type="button" className="w-full bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 text-xs hover:border-orange-500 transition-all"><Upload size={14} /> Upload Image</button>
+                    <button type="button" className="w-full bg-slate-50 border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 text-xs hover:border-orange-500 transition-all"><Upload size={14} /> Upload Image</button>
                   </div>
                 </div>
-                {/* 🚨 URL Input for quick demo setup */}
-                <input type="text" value={welcomeBgUrl} onChange={(e) => setWelcomeBgUrl(e.target.value)} placeholder="Or paste background URL here" className="mt-3 w-full bg-white border border-slate-200 rounded-xl p-2 text-xs font-medium text-slate-600 outline-none focus:border-orange-500" />
+                <input type="text" value={welcomeBgUrl} onChange={(e) => setWelcomeBgUrl(e.target.value)} placeholder="Or paste background URL here" className="mt-3 w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-medium text-slate-600 outline-none focus:border-orange-500" />
               </div>
 
               <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -334,11 +344,26 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* QR CODE SECTION */}
+          {/* 🚨 NEW QR CODE & STRICT MODE SECTION */}
           <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <h2 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2 border-b pb-3"><QrCode size={18} className="text-purple-500 md:w-5 md:h-5" /> Live Menu & Universal QR Code</h2>
+            <h2 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2 border-b pb-3">
+              <QrCode size={18} className="text-purple-500 md:w-5 md:h-5" /> QR Code & Table Settings
+            </h2>
             
-            <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
+            {/* Strict Table Mode Toggle */}
+            <div className={`mb-6 p-4 rounded-2xl border-2 transition-all ${strictTableMode ? 'border-orange-500 bg-orange-50' : 'border-slate-200 bg-slate-50'}`}>
+              <div className="flex justify-between items-center cursor-pointer" onClick={() => setStrictTableMode(!strictTableMode)}>
+                <div>
+                  <h3 className="font-black text-slate-800 text-sm">Strict Table Mode</h3>
+                  <p className="text-[10px] md:text-xs text-slate-500 font-medium mt-1">If ON, customers cannot change the table number while ordering. Use this if you generate specific QR codes for each table.</p>
+                </div>
+                <div>
+                  {strictTableMode ? <ToggleRight size={36} className="text-orange-500" /> : <ToggleLeft size={36} className="text-slate-400" />}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-8 items-center md:items-start pt-4 border-t border-slate-100">
               <div className="flex flex-col items-center gap-3 shrink-0">
                 <div className="w-40 h-40 md:w-48 md:h-48 bg-white border-4 border-slate-100 rounded-2xl shadow-sm p-2 flex items-center justify-center relative overflow-hidden group">
                   {qrCodeUrl ? (
@@ -352,28 +377,42 @@ const Settings = () => {
                   </div>
                 </div>
                 <button type="button" onClick={downloadQR} className="text-xs font-black text-purple-600 uppercase tracking-widest hover:underline flex items-center gap-1">
-                  <Download size={14} /> Save to Print
+                  <Download size={14} /> Save QR Image
                 </button>
               </div>
 
               <div className="flex-1 w-full space-y-4">
+                {/* Specific Table Generator */}
+                <div className="bg-purple-50 border border-purple-100 rounded-xl p-4">
+                  <label className="text-[9px] md:text-[10px] font-black text-purple-700 uppercase tracking-widest mb-2 block">Generate specific QR for Table No.</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="number" 
+                      placeholder="e.g. 5" 
+                      value={tableQRInput}
+                      onChange={(e) => setTableQRInput(e.target.value)}
+                      className="bg-white border border-purple-200 rounded-lg p-2 font-black text-slate-800 outline-none focus:border-purple-500 w-24 text-center" 
+                    />
+                    <div className="flex items-center text-xs text-purple-600/80 font-medium leading-tight">
+                      {tableQRInput 
+                        ? `QR code generated for Table ${tableQRInput}. Download and place it on Table ${tableQRInput}.` 
+                        : "Leave empty to download Universal QR code."}
+                    </div>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Your Unique Menu URL</label>
+                  <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Live URL Preview</label>
                   <div className="flex items-center gap-2">
-                    <input type="text" readOnly value={menuLink} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-sm font-bold text-slate-600 outline-none truncate" />
+                    <input type="text" readOnly value={specificMenuLink} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 md:p-4 text-xs font-bold text-slate-600 outline-none truncate" />
                     <button type="button" onClick={copyToClipboard} className="bg-slate-900 text-white p-3 md:p-4 rounded-xl hover:bg-slate-800 transition-all shrink-0" title="Copy Link">
                       <Copy size={18} />
                     </button>
                   </div>
                 </div>
-                <div className="bg-purple-50 border border-purple-100 rounded-xl p-4">
-                  <h4 className="text-xs font-black text-purple-700 uppercase tracking-widest mb-1 flex items-center gap-1.5"><Store size={14}/> How to use this?</h4>
-                  <p className="text-[11px] md:text-xs text-purple-600/80 font-medium leading-relaxed">
-                    Print this single QR code and place it on all your tables. Customers will scan it, view your curated menu, and enter their table number during checkout. No need to manage 20 different QR codes!
-                  </p>
-                </div>
+                
                 <div className="pt-2">
-                   <a href={menuLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-black text-blue-600 uppercase tracking-widest hover:underline">
+                   <a href={specificMenuLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-black text-blue-600 uppercase tracking-widest hover:underline">
                      Open Live Menu <ExternalLink size={14} />
                    </a>
                 </div>
