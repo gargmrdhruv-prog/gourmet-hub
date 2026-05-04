@@ -6,8 +6,10 @@ import Settings from "./Settings";
 import SuperAdminDashboard from './SuperAdminDashboard'; 
 import { Loader2, CheckCircle2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, ShoppingCart, Edit3, BellRing } from 'lucide-react';
 import SuperAdminLogin from './SuperAdminLogin';
+// 🚨 NEW IMPORT: Added BrowserRouter to fix the 'useLocation' error
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-function App() {
+function AppContent() {
   const [user, setUser] = useState(null);
   
   const [view, setView] = useState('welcome');
@@ -40,12 +42,11 @@ function App() {
   const [sheetRecs, setSheetRecs] = useState({}); 
 
   const [editingCartItem, setEditingCartItem] = useState(null);
-
-  const [storeSettings, setStoreSettings] = useState(null); // Set to null initially
+  const [storeSettings, setStoreSettings] = useState(null); 
 
   const currentPath = window.location.pathname;
   
-  // 🚨 1. INITIAL LOAD & MIDNIGHT EXPIRY CHECK (CLEAN LOGIC)
+  // 🚨 1. INITIAL LOAD & MIDNIGHT EXPIRY CHECK
   useEffect(() => {
     const init = async () => {
       const savedUser = localStorage.getItem('admin_user');
@@ -100,7 +101,7 @@ function App() {
       recordScan(activeRestId);
     };
     init();
-  }, [currentPath]); // Added currentPath to dependency array
+  }, [currentPath]);
 
   useEffect(() => { localStorage.setItem('gourmet_cart', JSON.stringify(cart)); }, [cart]);
   useEffect(() => { localStorage.setItem('gourmet_table', tableNumber); }, [tableNumber]);
@@ -110,7 +111,7 @@ function App() {
 
   // 🚨 2. REAL-TIME AUTO-KICK
   useEffect(() => {
-    if (!currentPath.startsWith('/admin')) return; // Only run on admin pages
+    if (!currentPath.startsWith('/admin')) return;
 
     const interval = setInterval(() => {
       const sessionExpiry = localStorage.getItem('admin_session_expiry');
@@ -191,7 +192,7 @@ function App() {
     } catch (err) {
       console.error('Fetch error:', err);
     } finally {
-      setLoading(false); // Stop loading ONLY after data is fetched
+      setLoading(false); 
     }
   }
 
@@ -342,14 +343,17 @@ function App() {
   if (currentPath.includes('super-admin')) return localStorage.getItem('super_admin_auth') === 'true' ? <SuperAdminDashboard /> : <SuperAdminLogin />;
   
   if (currentPath.includes('admin-login')) {
-    if (user) { window.location.href = '/admin'; return null; }
-    // Clean return of AdminLogin without any layout interference
+    if (user) { 
+        return <Navigate to="/admin" replace />; 
+    }
+    // Render AdminLogin within Router context
     return (
        <div className="min-h-screen bg-slate-50 flex flex-col justify-center">
          <AdminLogin onLoginSuccess={(u) => { setUser(u); window.location.href = '/admin'; }} />
        </div>
     );
   }
+  
   if (currentPath.includes('admin/settings')) return <Settings />;
   if (currentPath.includes('/admin')) {
     if (!user) { window.location.href = '/admin-login'; return null; }
@@ -357,7 +361,6 @@ function App() {
   }
 
   // 🚨 4. LOADING STATE FOR CUSTOMER MENU
-  // We only show this spinner for the customer menu AFTER making sure it's not an admin route
   if (loading || !storeSettings) {
     return (
       <div className="h-screen bg-slate-900 flex flex-col items-center justify-center text-white gap-4">
@@ -926,4 +929,11 @@ function App() {
   );
 }
 
-export default App;
+// 🚨 WRAP THE ENTIRE APP IN A ROUTER TO FIX USELOCATION ISSUE
+export default function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
+  );
+}
