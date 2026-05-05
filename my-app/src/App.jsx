@@ -296,7 +296,22 @@ function App() {
 
     setLoading(true);
     try {
-      const finalTableStatus = tableNumber && tableNumber.toString().trim() !== "" ? tableNumber : "Takeaway / Parcel";
+      // 🚨 FIX: Replaced "Takeaway / Parcel" with "Table Unassigned"
+      const finalTableStatus = tableNumber && tableNumber.toString().trim() !== "" ? tableNumber : "Table Unassigned";
+
+      // 🚨 FIX: Fetch today's total orders to generate proper sequence ID for customer UI
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      
+      const { count, error: countError } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('restaurant_id', restaurantId)
+        .gte('created_at', todayStart.toISOString());
+
+      if (countError) throw countError;
+      
+      const newSequenceNumber = 1000 + (count || 0) + 1; // Generates 1001, 1002 etc.
 
       const { data, error } = await supabase
         .from('orders')
@@ -310,8 +325,8 @@ function App() {
       
       if (error) throw error;
       if (data && data.length > 0) {
-        const newId = data[0].id.toString().slice(0, 4);
-        setOrderId(prev => prev ? `${prev}, #${newId}` : newId);
+        // Use proper readable ID
+        setOrderId(`Order #${newSequenceNumber}`);
         
         setPlacedOrderItems(prev => [...prev, ...cart]); 
         setCart([]); 
@@ -372,7 +387,6 @@ function App() {
     return luma < 128; 
   };
 
-  // 🚨 CLEANUP: Direct background application
   const mainBgColor = storeSettings.menu_bg_value || '#f8fafc';
   const isDarkTheme = isDarkColor(mainBgColor);
 
@@ -669,7 +683,8 @@ function App() {
                       </p>
                     ) : (
                       <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest mt-2">
-                        Leave blank for Takeaway / Parcel
+                        {/* 🚨 FIX: Replaced "Leave blank for Takeaway / Parcel" */}
+                        Leave blank if Table is Unassigned
                       </p>
                     )}
                   </div>
@@ -690,7 +705,8 @@ function App() {
                   </div>
                   <h2 className="text-3xl font-serif font-black text-slate-900 mb-2 italic">Show to Waiter</h2>
                   <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-6">
-                    {tableNumber && tableNumber.toString().trim() !== "" ? `Table ${tableNumber}` : 'Takeaway / Parcel'} • {orderId}
+                    {/* 🚨 FIX: Replaced Takeaway / Parcel with Table Unassigned */}
+                    {tableNumber && tableNumber.toString().trim() !== "" ? `Table ${tableNumber}` : 'Table Unassigned'} • {orderId}
                   </p>
 
                   <div className="bg-slate-50 rounded-2xl p-5 mb-8 text-left max-h-[40vh] overflow-y-auto border border-slate-100 shadow-inner custom-scrollbar">

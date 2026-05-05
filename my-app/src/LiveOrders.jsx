@@ -15,11 +15,9 @@ const LiveOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // 🚨 NEW: Filter States
-  const [dateFilter, setDateFilter] = useState('today'); // 'today', 'yesterday', 'week', 'custom'
+  const [dateFilter, setDateFilter] = useState('today'); 
   const [customDate, setCustomDate] = useState('');
 
-  // Notification sound
   const notificationSound = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1150-pristine.mp3');
 
   useEffect(() => {
@@ -28,7 +26,6 @@ const LiveOrders = () => {
     const admin = JSON.parse(localStorage.getItem('admin_user'));
     if (!admin) return;
 
-    // REAL-TIME SUBSCRIPTION
     const channel = supabase
       .channel('public:orders')
       .on(
@@ -73,10 +70,34 @@ const LiveOrders = () => {
         .from('orders')
         .select('*')
         .eq('restaurant_id', admin.id) 
-        .order('created_at', { ascending: false });
+        // 🚨 IMPORTANT: Order exactly by created time so oldest is first, to calculate sequence properly
+        .order('created_at', { ascending: true }); 
       
       if (error) throw error;
-      setOrders(data || []);
+
+      // 🚨 FIX: Calculate sequential order numbers based on the day
+      let currentDay = '';
+      let dailyCounter = 1000; // Sequence starts from 1001
+
+      const sequencedOrders = (data || []).map(order => {
+        const orderDate = new Date(order.created_at).toDateString();
+        
+        // Reset counter if it's a new day
+        if (orderDate !== currentDay) {
+           currentDay = orderDate;
+           dailyCounter = 1000;
+        }
+        
+        dailyCounter++;
+        return {
+          ...order,
+          displayId: `#${dailyCounter}` // Add a clean, readable ID
+        };
+      });
+
+      // Reverse back to show newest first on UI
+      setOrders(sequencedOrders.reverse());
+      
     } catch (err) {
       console.error("Fetch Error:", err.message);
     } finally {
@@ -84,7 +105,6 @@ const LiveOrders = () => {
     }
   }
 
-  // 🚨 NEW: Smart Date Filtering Logic
   const filteredOrders = useMemo(() => {
     const now = new Date();
     
@@ -104,18 +124,16 @@ const LiveOrders = () => {
       } else if (dateFilter === 'custom' && customDate) {
         return orderDate.toDateString() === new Date(customDate).toDateString();
       }
-      return true; // Default fallback
+      return true; 
     });
   }, [orders, dateFilter, customDate]);
 
   return (
     <AdminLayout>
-      {/* RESPONSIVE HEADER */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-8 gap-6">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl md:text-3xl font-black text-slate-800 italic tracking-tight">KOT Display</h1>
-            {/* 🚨 LIVE BADGE COUNT */}
             <span className="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-xs md:text-sm font-black tracking-widest animate-pulse border border-orange-200">
               {filteredOrders.length} ORDERS
             </span>
@@ -129,7 +147,6 @@ const LiveOrders = () => {
           </p>
         </div>
 
-        {/* 🚨 NEW: Date Filter UI */}
         <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap md:flex-nowrap gap-1 w-full lg:w-auto">
           {['today', 'yesterday', 'week'].map((f) => (
             <button 
@@ -172,27 +189,26 @@ const LiveOrders = () => {
           <p className="text-xs font-bold text-slate-300 mt-2 uppercase tracking-widest">For the selected date filter.</p>
         </div>
       ) : (
-        // 🚨 CLEAN GRID WITHOUT BUTTONS
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
           {filteredOrders.map((order) => (
             <div key={order.id} className="bg-white rounded-[2rem] p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow relative flex flex-col">
               
-              {/* Header: ID & Time */}
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-2xl font-black text-slate-800 italic tracking-tighter flex items-center gap-1.5">
-                    <UtensilsCrossed size={18} className="text-orange-500" /> {order.table_number !== "Takeaway / Parcel" ? `Table ${order.table_number}` : "Takeaway"}
+                    {/* 🚨 FIX: Replaced Takeaway logic with Pending Table */}
+                    <UtensilsCrossed size={18} className="text-orange-500" /> {order.table_number !== "Takeaway / Parcel" && order.table_number !== "Table Unassigned" ? `Table ${order.table_number}` : "Pending Table"}
                   </h3>
                   <div className="flex items-center gap-1.5 text-slate-400 text-[9px] font-bold uppercase tracking-wider mt-1">
                     <Clock size={10} /> {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
-                <span className="bg-slate-50 text-slate-400 border border-slate-200 text-[9px] px-2 py-1 rounded-md font-black tracking-widest">
-                  #{order.id.toString().slice(0, 4).toUpperCase()}
+                {/* 🚨 FIX: Using the newly calculated sequential ID */}
+                <span className="bg-slate-50 text-slate-400 border border-slate-200 text-[10px] px-2 py-1 rounded-md font-black tracking-widest">
+                  {order.displayId}
                 </span>
               </div>
 
-              {/* Items List */}
               <div className="bg-slate-50 rounded-2xl p-4 mb-4 border border-slate-100 flex-1 overflow-y-auto max-h-[250px] custom-scrollbar">
                 <div className="space-y-3">
                   {order.items?.map((item, idx) => (
