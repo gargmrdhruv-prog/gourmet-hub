@@ -33,11 +33,28 @@ const LiveOrders = () => {
         { event: 'INSERT', schema: 'public', table: 'orders' }, 
         (payload) => {
           if (payload.new.restaurant_id === admin.id) {
-            console.log('NEW ORDER DETECTED FOR MY RESTAURANT:', payload.new);
             notificationSound.play().catch(err => {
-              console.log("Audio Playback blocked. Please interact with the page first.");
+              console.log("Audio Playback blocked.");
             });
-            setOrders((currentOrders) => [payload.new, ...currentOrders]);
+            
+            // 🚨 REALTIME FIX: Smart sequential ID generator for newly incoming live orders
+            setOrders((currentOrders) => {
+               const todayStr = new Date(payload.new.created_at).toDateString();
+               const todayOrdersCount = currentOrders.filter(o => new Date(o.created_at).toDateString() === todayStr).length;
+               
+               const dailyCounter = 1000 + todayOrdersCount + 1;
+               const d = new Date(payload.new.created_at);
+               const day = d.getDate().toString().padStart(2, '0');
+               const month = (d.getMonth() + 1).toString().padStart(2, '0');
+               const year = d.getFullYear().toString().slice(-2);
+               
+               const newOrderWithId = {
+                 ...payload.new,
+                 displayId: `#${day}${month}${year}-${dailyCounter}`
+               };
+               
+               return [newOrderWithId, ...currentOrders];
+            });
           }
         }
       )
@@ -48,7 +65,7 @@ const LiveOrders = () => {
           if (payload.new.restaurant_id === admin.id) {
             setOrders((currentOrders) => 
               currentOrders.map(order => 
-                order.id === payload.new.id ? payload.new : order
+                order.id === payload.new.id ? { ...order, ...payload.new } : order
               )
             );
           }
@@ -70,32 +87,37 @@ const LiveOrders = () => {
         .from('orders')
         .select('*')
         .eq('restaurant_id', admin.id) 
-        // 🚨 IMPORTANT: Order exactly by created time so oldest is first, to calculate sequence properly
+        // 🚨 IMPORTANT: Sorting by oldest first to calculate the correct sequence
         .order('created_at', { ascending: true }); 
       
       if (error) throw error;
 
-      // 🚨 FIX: Calculate sequential order numbers based on the day
       let currentDay = '';
-      let dailyCounter = 1000; // Sequence starts from 1001
+      let dailyCounter = 1000; 
 
+      // 🚨 MASTER SEQUENCE LOGIC: Generate globally unique, date-prefixed IDs
       const sequencedOrders = (data || []).map(order => {
-        const orderDate = new Date(order.created_at).toDateString();
+        const dateObj = new Date(order.created_at);
+        const orderDate = dateObj.toDateString();
         
-        // Reset counter if it's a new day
         if (orderDate !== currentDay) {
            currentDay = orderDate;
            dailyCounter = 1000;
         }
         
         dailyCounter++;
+        
+        const day = dateObj.getDate().toString().padStart(2, '0');
+        const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+        const year = dateObj.getFullYear().toString().slice(-2);
+        
         return {
           ...order,
-          displayId: `#${dailyCounter}` // Add a clean, readable ID
+          displayId: `#${day}${month}${year}-${dailyCounter}` 
         };
       });
 
-      // Reverse back to show newest first on UI
+      // Reverse back to show newest orders first on the screen
       setOrders(sequencedOrders.reverse());
       
     } catch (err) {
@@ -196,14 +218,13 @@ const LiveOrders = () => {
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-2xl font-black text-slate-800 italic tracking-tighter flex items-center gap-1.5">
-                    {/* 🚨 FIX: Replaced Takeaway logic with Pending Table */}
                     <UtensilsCrossed size={18} className="text-orange-500" /> {order.table_number !== "Takeaway / Parcel" && order.table_number !== "Table Unassigned" ? `Table ${order.table_number}` : "Pending Table"}
                   </h3>
                   <div className="flex items-center gap-1.5 text-slate-400 text-[9px] font-bold uppercase tracking-wider mt-1">
                     <Clock size={10} /> {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
-                {/* 🚨 FIX: Using the newly calculated sequential ID */}
+                {/* 🚨 UNIQUE ID REFLECTED HERE */}
                 <span className="bg-slate-50 text-slate-400 border border-slate-200 text-[10px] px-2 py-1 rounded-md font-black tracking-widest">
                   {order.displayId}
                 </span>

@@ -296,10 +296,8 @@ function App() {
 
     setLoading(true);
     try {
-      // 🚨 FIX: Replaced "Takeaway / Parcel" with "Table Unassigned"
       const finalTableStatus = tableNumber && tableNumber.toString().trim() !== "" ? tableNumber : "Table Unassigned";
 
-      // 🚨 FIX: Fetch today's total orders to generate proper sequence ID for customer UI
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       
@@ -311,7 +309,14 @@ function App() {
 
       if (countError) throw countError;
       
-      const newSequenceNumber = 1000 + (count || 0) + 1; // Generates 1001, 1002 etc.
+      // 🚨 FIX: Generate sequential ID exactly identical to Admin logic
+      const dailyCount = (count || 0) + 1; 
+      const sequenceNumber = 1000 + dailyCount; 
+      const day = todayStart.getDate().toString().padStart(2, '0');
+      const month = (todayStart.getMonth() + 1).toString().padStart(2, '0');
+      const year = todayStart.getFullYear().toString().slice(-2);
+      
+      const generatedOrderId = `#${day}${month}${year}-${sequenceNumber}`;
 
       const { data, error } = await supabase
         .from('orders')
@@ -325,8 +330,8 @@ function App() {
       
       if (error) throw error;
       if (data && data.length > 0) {
-        // Use proper readable ID
-        setOrderId(`Order #${newSequenceNumber}`);
+        // Set the unique matched ID directly
+        setOrderId(generatedOrderId);
         
         setPlacedOrderItems(prev => [...prev, ...cart]); 
         setCart([]); 
@@ -683,7 +688,6 @@ function App() {
                       </p>
                     ) : (
                       <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest mt-2">
-                        {/* 🚨 FIX: Replaced "Leave blank for Takeaway / Parcel" */}
                         Leave blank if Table is Unassigned
                       </p>
                     )}
@@ -705,7 +709,6 @@ function App() {
                   </div>
                   <h2 className="text-3xl font-serif font-black text-slate-900 mb-2 italic">Show to Waiter</h2>
                   <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-6">
-                    {/* 🚨 FIX: Replaced Takeaway / Parcel with Table Unassigned */}
                     {tableNumber && tableNumber.toString().trim() !== "" ? `Table ${tableNumber}` : 'Table Unassigned'} • {orderId}
                   </p>
 
