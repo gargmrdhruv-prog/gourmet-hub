@@ -843,12 +843,18 @@ function App() {
 
                       <div className="mb-6 md:mb-8">
                         <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-xs md:text-sm flex items-center gap-2"><MessageSquare size={14}/> Add a cooking request</h3>
-                        <textarea 
-                          placeholder="e.g. Don't make it too spicy" 
-                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 md:p-4 text-xs md:text-sm font-medium text-slate-700 outline-none focus:bg-white transition-all resize-none h-20 md:h-24"
-                          value={cookingRequest}
-                          onChange={(e) => setCookingRequest(e.target.value)}
-                        />
+                        {/* 🛡️ DEFENSE 3: XSS Protection & Input Sanitization */}
+<textarea 
+  placeholder="Any special cooking request? (e.g., Less spicy)" 
+  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-700 outline-none focus:bg-white transition-all resize-none h-24"
+  value={cookingRequest} // Agar aapka variable name alag hai, toh ise change kar lena
+  maxLength={150}        // 🚨 DEFENSE: Max 150 characters (No long scripts allowed)
+  onChange={(e) => {
+    // 🚨 DEFENSE: Turant HTML tags (< aur >) ko remove/block kar do
+    const safeText = e.target.value.replace(/[<>]/g, ""); 
+    setCookingRequest(safeText);
+  }}
+/>
                       </div>
 
                       {!editingCartItem && getSmartRecs(selectedDish).length > 0 && (
