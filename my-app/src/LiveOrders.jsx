@@ -37,20 +37,24 @@ const LiveOrders = () => {
               console.log("Audio Playback blocked.");
             });
             
-            // 🚨 REALTIME FIX: Smart sequential ID generator for newly incoming live orders
+            // 🚨 REALTIME FIX: Smart monthly sequential ID generator for newly incoming live orders
             setOrders((currentOrders) => {
-               const todayStr = new Date(payload.new.created_at).toDateString();
-               const todayOrdersCount = currentOrders.filter(o => new Date(o.created_at).toDateString() === todayStr).length;
-               
-               const dailyCounter = 1000 + todayOrdersCount + 1;
                const d = new Date(payload.new.created_at);
-               const day = d.getDate().toString().padStart(2, '0');
+               const monthTracker = `${d.getMonth()}-${d.getFullYear()}`;
+               
+               const monthOrdersCount = currentOrders.filter(o => {
+                  const od = new Date(o.created_at);
+                  return `${od.getMonth()}-${od.getFullYear()}` === monthTracker;
+               }).length;
+               
+               const monthlyCounter = monthOrdersCount + 1;
                const month = (d.getMonth() + 1).toString().padStart(2, '0');
                const year = d.getFullYear().toString().slice(-2);
+               const seq = monthlyCounter.toString().padStart(2, '0');
                
                const newOrderWithId = {
                  ...payload.new,
-                 displayId: `#${day}${month}${year}-${dailyCounter}`
+                 displayId: `#${month}${year}-${seq}`
                };
                
                return [newOrderWithId, ...currentOrders];
@@ -87,37 +91,35 @@ const LiveOrders = () => {
         .from('orders')
         .select('*')
         .eq('restaurant_id', admin.id) 
-        // 🚨 IMPORTANT: Sorting by oldest first to calculate the correct sequence
         .order('created_at', { ascending: true }); 
       
       if (error) throw error;
 
-      let currentDay = '';
-      let dailyCounter = 1000; 
+      let currentMonthTracker = '';
+      let monthlyCounter = 0; 
 
-      // 🚨 MASTER SEQUENCE LOGIC: Generate globally unique, date-prefixed IDs
+      // 🚨 MASTER SEQUENCE LOGIC: Generate globally unique, MMYY-prefixed IDs
       const sequencedOrders = (data || []).map(order => {
         const dateObj = new Date(order.created_at);
-        const orderDate = dateObj.toDateString();
+        const monthTracker = `${dateObj.getMonth()}-${dateObj.getFullYear()}`;
         
-        if (orderDate !== currentDay) {
-           currentDay = orderDate;
-           dailyCounter = 1000;
+        if (monthTracker !== currentMonthTracker) {
+           currentMonthTracker = monthTracker;
+           monthlyCounter = 0;
         }
         
-        dailyCounter++;
+        monthlyCounter++;
         
-        const day = dateObj.getDate().toString().padStart(2, '0');
         const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
         const year = dateObj.getFullYear().toString().slice(-2);
+        const seq = monthlyCounter.toString().padStart(2, '0');
         
         return {
           ...order,
-          displayId: `#${day}${month}${year}-${dailyCounter}` 
+          displayId: `#${month}${year}-${seq}` 
         };
       });
 
-      // Reverse back to show newest orders first on the screen
       setOrders(sequencedOrders.reverse());
       
     } catch (err) {
@@ -224,7 +226,6 @@ const LiveOrders = () => {
                     <Clock size={10} /> {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
-                {/* 🚨 UNIQUE ID REFLECTED HERE */}
                 <span className="bg-slate-50 text-slate-400 border border-slate-200 text-[10px] px-2 py-1 rounded-md font-black tracking-widest">
                   {order.displayId}
                 </span>

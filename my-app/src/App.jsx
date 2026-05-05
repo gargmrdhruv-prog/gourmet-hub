@@ -298,25 +298,26 @@ function App() {
     try {
       const finalTableStatus = tableNumber && tableNumber.toString().trim() !== "" ? tableNumber : "Table Unassigned";
 
+      // 🚨 FIX: Fetch current month's count to keep the sequence MMYY-01 strictly unique
       const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
+      // Set to the first day of the current month
+      const startOfMonth = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+      startOfMonth.setHours(0, 0, 0, 0);
       
       const { count, error: countError } = await supabase
         .from('orders')
         .select('*', { count: 'exact', head: true })
         .eq('restaurant_id', restaurantId)
-        .gte('created_at', todayStart.toISOString());
+        .gte('created_at', startOfMonth.toISOString()); 
 
       if (countError) throw countError;
       
-      // 🚨 FIX: Generate sequential ID exactly identical to Admin logic
-      const dailyCount = (count || 0) + 1; 
-      const sequenceNumber = 1000 + dailyCount; 
-      const day = todayStart.getDate().toString().padStart(2, '0');
+      const monthlyCount = (count || 0) + 1; 
+      const sequenceNumber = monthlyCount.toString().padStart(2, '0'); // Pads to '01', '02', etc.
       const month = (todayStart.getMonth() + 1).toString().padStart(2, '0');
       const year = todayStart.getFullYear().toString().slice(-2);
       
-      const generatedOrderId = `#${day}${month}${year}-${sequenceNumber}`;
+      const generatedOrderId = `#${month}${year}-${sequenceNumber}`;
 
       const { data, error } = await supabase
         .from('orders')
@@ -330,7 +331,6 @@ function App() {
       
       if (error) throw error;
       if (data && data.length > 0) {
-        // Set the unique matched ID directly
         setOrderId(generatedOrderId);
         
         setPlacedOrderItems(prev => [...prev, ...cart]); 
