@@ -3,7 +3,7 @@ import AdminLayout from './AdminLayout';
 import { supabase } from './supabase';
 import { 
   Store, Phone, Clock, MapPin, Upload, Loader2, Save, Type, 
-  Receipt, Plus, Trash2, QrCode, Copy, Download, ExternalLink, Image as ImageIcon, ToggleLeft, ToggleRight 
+  Receipt, Plus, Trash2, QrCode, Copy, Download, ExternalLink, Palette, ToggleLeft, ToggleRight 
 } from 'lucide-react';
 
 const Settings = () => {
@@ -11,13 +11,8 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [adminUser, setAdminUser] = useState(null);
 
-  // MENU BACKGROUND STATES
-  const [menuBgType, setMenuBgType] = useState('color'); 
+  // 🚨 SIMPLIFIED: Only Solid Color State remains
   const [menuBgValue, setMenuBgValue] = useState('#f8fafc');
-  const [menuBgFile, setMenuBgFile] = useState(null); 
-  const [menuBgOpacity, setMenuBgOpacity] = useState(0.1);
-  const [headerBgColor, setHeaderBgColor] = useState('#ffffff');
-  const [menuBgPosition, setMenuBgPosition] = useState('center');
   
   const [taxes, setTaxes] = useState([]);
   const [name, setName] = useState('');
@@ -29,11 +24,9 @@ const Settings = () => {
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState(null);
   
-  // Welcome Background States
   const [welcomeBgUrl, setWelcomeBgUrl] = useState('');
   const [welcomeBgFile, setWelcomeBgFile] = useState(null);
 
-  // 🚨 NEW: Strict Mode & Specific Table QR State
   const [strictTableMode, setStrictTableMode] = useState(false);
   const [tableQRInput, setTableQRInput] = useState('');
 
@@ -63,12 +56,10 @@ const Settings = () => {
         setCloseTime(data.closing_time || '');
         setLogoUrl(data.logo_url || '');
         setWelcomeBgUrl(data.welcome_bg_url || ''); 
-        setMenuBgType(data.menu_bg_type || 'color');
+        
+        // 🚨 Fetch only solid color
         setMenuBgValue(data.menu_bg_value || '#f8fafc');
-        setMenuBgOpacity(data.menu_bg_opacity ?? 0.1);
-        setHeaderBgColor(data.header_bg_color || '#ffffff');
-        setMenuBgPosition(data.menu_bg_position || 'center');
-        setStrictTableMode(data.strict_table_mode || false); // Load Strict Mode
+        setStrictTableMode(data.strict_table_mode || false);
         
         setTaxes(data.taxes || [
           { id: "cgst", name: "CGST", rate: 2.5, active: false },
@@ -101,13 +92,9 @@ const Settings = () => {
     try {
       let finalLogoUrl = logoUrl;
       let finalBgUrl = welcomeBgUrl;
-      let finalMenuBgValue = menuBgValue;
 
       if (logoFile) finalLogoUrl = await uploadFile(logoFile, 'logo');
       if (welcomeBgFile) finalBgUrl = await uploadFile(welcomeBgFile, 'bg'); 
-      if (menuBgFile) {
-        finalMenuBgValue = await uploadFile(menuBgFile, 'menubg');
-      }
 
       const safeOpenTime = openTime ? openTime : null;
       const safeCloseTime = closeTime ? closeTime : null;
@@ -122,12 +109,13 @@ const Settings = () => {
         logo_url: finalLogoUrl, 
         welcome_bg_url: finalBgUrl, 
         taxes: taxes,
-        menu_bg_type: menuBgType,
-        menu_bg_value: finalMenuBgValue,
-        menu_bg_opacity: menuBgOpacity,
-        header_bg_color: headerBgColor,
-        menu_bg_position: menuBgPosition,
-        strict_table_mode: strictTableMode // Save Strict Mode
+        // 🚨 Hardcoding other values so DB doesn't complain, but only saving our color
+        menu_bg_type: 'color',
+        menu_bg_value: menuBgValue,
+        menu_bg_opacity: 1,
+        header_bg_color: '#ffffff',
+        menu_bg_position: 'center',
+        strict_table_mode: strictTableMode
       };
 
       const { data: existing, error: fetchErr } = await supabase
@@ -160,7 +148,6 @@ const Settings = () => {
     }
   };
 
-  // 🚨 Dynamic QR Logic based on Table Number
   const baseMenuLink = adminUser ? `${window.location.origin}/?rest=${adminUser.id}` : '';
   const specificMenuLink = tableQRInput && adminUser ? `${baseMenuLink}&table=${tableQRInput}` : baseMenuLink;
   const qrCodeUrl = adminUser ? `https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=${encodeURIComponent(specificMenuLink)}` : '';
@@ -218,85 +205,17 @@ const Settings = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-              {/* MENU BACKGROUND SETTINGS */}
+              {/* 🚨 SIMPLIFIED MENU BACKGROUND SETTINGS */}
               <div className="col-span-1 md:col-span-2 bg-slate-50 p-5 md:p-6 rounded-2xl shadow-inner border border-slate-200">
                 <h2 className="text-sm md:text-base font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
-                  <ImageIcon size={16} className="text-purple-500" /> Menu Background
+                  <Palette size={16} className="text-purple-500" /> App Background Color
                 </h2>
                 
-                <div className="space-y-6">
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="radio" name="bgType" checked={menuBgType === 'color'} onChange={() => setMenuBgType('color')} className="accent-purple-500 w-4 h-4" />
-                      <span className="text-sm font-bold text-slate-700">Solid Color</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="radio" name="bgType" checked={menuBgType === 'image'} onChange={() => setMenuBgType('image')} className="accent-purple-500 w-4 h-4" />
-                      <span className="text-sm font-bold text-slate-700">Upload Image</span>
-                    </label>
-                  </div>
-
-                  {menuBgType === 'color' ? (
-                    <div>
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Full Page Color Fill</label>
-                      <div className="flex gap-3">
-                        <input type="color" value={menuBgValue} onChange={(e) => setMenuBgValue(e.target.value)} className="h-10 w-14 rounded cursor-pointer" />
-                        <input type="text" value={menuBgValue} onChange={(e) => setMenuBgValue(e.target.value)} className="flex-1 bg-white border border-slate-200 rounded-xl p-2 font-bold text-slate-700 outline-none" />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-5 bg-white p-4 rounded-xl border border-slate-100">
-                      <div>
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Upload Background Image</label>
-                        <div className="flex items-center gap-4">
-                          <div className="h-16 w-24 md:h-20 md:w-32 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden relative shrink-0">
-                            {menuBgFile ? (
-                              <img src={URL.createObjectURL(menuBgFile)} className="w-full h-full object-cover" style={{ objectPosition: menuBgPosition }} />
-                            ) : menuBgValue && menuBgValue.startsWith('http') ? (
-                              <img src={menuBgValue} className="w-full h-full object-cover" style={{ objectPosition: menuBgPosition }} />
-                            ) : (
-                              <span className="text-[9px] text-slate-400 font-bold">No Image</span>
-                            )}
-                          </div>
-                          <div className="relative w-full">
-                            <input type="file" accept="image/*" onChange={(e) => setMenuBgFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                            <button type="button" className="w-full bg-slate-50 border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 text-xs hover:border-purple-500 transition-all"><Upload size={14} /> Choose File</button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Focus Area</label>
-                        <div className="flex gap-2">
-                          {['top', 'center', 'bottom'].map(pos => (
-                            <button type="button" key={pos} onClick={() => setMenuBgPosition(pos)} className={`flex-1 py-2 rounded-lg text-xs font-bold capitalize transition-all border ${menuBgPosition === pos ? 'bg-purple-100 border-purple-500 text-purple-700 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}>
-                              {pos}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="pt-2 border-t border-slate-100">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Header Color (Top Bar)</label>
-                        <div className="flex gap-3">
-                          <input type="color" value={headerBgColor} onChange={(e) => setHeaderBgColor(e.target.value)} className="h-10 w-14 rounded cursor-pointer" />
-                          <input type="text" value={headerBgColor} onChange={(e) => setHeaderBgColor(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2 font-bold text-slate-700 outline-none" />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex justify-between">
-                      <span>Background Visibility (Opacity)</span>
-                      <span className="text-purple-600">{Math.round(menuBgOpacity * 100)}%</span>
-                    </label>
-                    <input 
-                      type="range" min="0" max="1" step="0.05" 
-                      value={menuBgOpacity} 
-                      onChange={(e) => setMenuBgOpacity(parseFloat(e.target.value))} 
-                      className="w-full accent-purple-500 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                    />
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Choose a solid color for your menu</label>
+                  <div className="flex gap-3 max-w-sm">
+                    <input type="color" value={menuBgValue} onChange={(e) => setMenuBgValue(e.target.value)} className="h-10 w-14 rounded cursor-pointer" />
+                    <input type="text" value={menuBgValue} onChange={(e) => setMenuBgValue(e.target.value)} className="flex-1 bg-white border border-slate-200 rounded-xl p-2 font-bold text-slate-700 outline-none" placeholder="#FFFFFF" />
                   </div>
                 </div>
               </div>
@@ -318,10 +237,10 @@ const Settings = () => {
 
               {/* Welcome Background Upload */}
               <div className="col-span-1 border border-slate-100 p-4 rounded-2xl bg-white">
-                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Menu Welcome Background</label>
+                <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Menu Welcome Screen Image</label>
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 md:h-20 md:w-20 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden relative shrink-0">
-                    {welcomeBgFile ? <img src={URL.createObjectURL(welcomeBgFile)} className="h-full w-full object-cover" /> : welcomeBgUrl ? <img src={welcomeBgUrl} className="h-full w-full object-cover" /> : <ImageIcon className="text-slate-300" size={24}/>}
+                    {welcomeBgFile ? <img src={URL.createObjectURL(welcomeBgFile)} className="h-full w-full object-cover" /> : welcomeBgUrl ? <img src={welcomeBgUrl} className="h-full w-full object-cover" /> : <span className="text-[9px] text-slate-400 font-bold text-center leading-tight">Welcome Image</span>}
                   </div>
                   <div className="relative w-full">
                     <input type="file" accept="image/*" onChange={(e) => setWelcomeBgFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
@@ -344,13 +263,12 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* 🚨 NEW QR CODE & STRICT MODE SECTION */}
+          {/* QR CODE & STRICT MODE SECTION */}
           <div className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <h2 className="text-base md:text-lg font-bold text-slate-800 mb-4 md:mb-6 flex items-center gap-2 border-b pb-3">
               <QrCode size={18} className="text-purple-500 md:w-5 md:h-5" /> QR Code & Table Settings
             </h2>
             
-            {/* Strict Table Mode Toggle */}
             <div className={`mb-6 p-4 rounded-2xl border-2 transition-all ${strictTableMode ? 'border-orange-500 bg-orange-50' : 'border-slate-200 bg-slate-50'}`}>
               <div className="flex justify-between items-center cursor-pointer" onClick={() => setStrictTableMode(!strictTableMode)}>
                 <div>
@@ -382,7 +300,6 @@ const Settings = () => {
               </div>
 
               <div className="flex-1 w-full space-y-4">
-                {/* Specific Table Generator */}
                 <div className="bg-purple-50 border border-purple-100 rounded-xl p-4">
                   <label className="text-[9px] md:text-[10px] font-black text-purple-700 uppercase tracking-widest mb-2 block">Generate specific QR for Table No.</label>
                   <div className="flex gap-2">

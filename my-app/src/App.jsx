@@ -4,7 +4,7 @@ import AdminLogin from './AdminLogin';
 import AdminDashboard from './AdminDashboard';
 import Settings from "./Settings";
 import SuperAdminDashboard from './SuperAdminDashboard'; 
-import { Loader2, CheckCircle2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, ShoppingCart, Edit3, BellRing } from 'lucide-react';
+import { Loader2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, Edit3, BellRing } from 'lucide-react';
 import SuperAdminLogin from './SuperAdminLogin';
 import { Navigate, useLocation } from 'react-router-dom';
 
@@ -163,19 +163,14 @@ function App() {
           theme_color: settingsData.primary_color || '#F59E0B', 
           theme_font: settingsData.font_family || 'Poppins, sans-serif',
           theme_button: settingsData.button_style || 'rounded-full',
-          menu_bg_type: settingsData.menu_bg_type || 'color',
           menu_bg_value: settingsData.menu_bg_value || '#f8fafc',
-          menu_bg_opacity: settingsData.menu_bg_opacity ?? 0.1,
-          header_bg_color: settingsData.header_bg_color || '#ffffff',
-          menu_bg_position: settingsData.menu_bg_position || 'center',
           strict_table_mode: settingsData.strict_table_mode || false
         });
       } else {
         setStoreSettings({ 
           name: 'Welcome to Our Menu', logo: '', tagline: '', welcome_bg_url: '', taxes: [], 
           theme_color: '#F59E0B', theme_font: 'Poppins, sans-serif', theme_button: 'rounded-full',
-          menu_bg_type: 'color', menu_bg_value: '#f8fafc', menu_bg_opacity: 0.1,
-          header_bg_color: '#ffffff', menu_bg_position: 'center',
+          menu_bg_value: '#f8fafc',
           strict_table_mode: false
         });
       }
@@ -377,22 +372,9 @@ function App() {
     return luma < 128; 
   };
 
-  const isDarkTheme = storeSettings.menu_bg_type === 'color' ? isDarkColor(storeSettings.menu_bg_value) : false;
-
-  const getRgba = (hex, alpha) => {
-    if (!hex || !hex.startsWith('#') || hex.length !== 7) return hex || 'transparent';
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
-
-  const currentOpacity = storeSettings.menu_bg_opacity !== undefined ? storeSettings.menu_bg_opacity : 1;
-  const headerBgWithOpacity = getRgba(storeSettings.header_bg_color || '#ffffff', currentOpacity);
-  
-  const mainBgColor = storeSettings.menu_bg_type === 'color' 
-    ? (storeSettings.menu_bg_value || '#f8fafc') 
-    : '#f8fafc';
+  // 🚨 CLEANUP: Direct background application
+  const mainBgColor = storeSettings.menu_bg_value || '#f8fafc';
+  const isDarkTheme = isDarkColor(mainBgColor);
 
   return (
     <div style={{ fontFamily: storeSettings.theme_font }}>
@@ -423,33 +405,13 @@ function App() {
       {view !== 'welcome' && (
         <div 
           className="w-full relative transition-colors duration-300"
-          // 🚨 FIX: Now the background color applies to ALL screens (Menu, Checkout, Waiter)
           style={{ backgroundColor: mainBgColor, minHeight: `${vh}px` }}
         >
-          
-          {/* 🚨 FIX: Image background now renders on ALL screens if set */}
-          {storeSettings.menu_bg_type === 'image' && storeSettings.menu_bg_value && (
-            <div 
-              className="fixed top-0 left-0 right-0 z-0 pointer-events-none transition-opacity duration-300"
-              style={{
-                height: `${vh}px`,
-                backgroundImage: `url(${storeSettings.menu_bg_value})`,
-                backgroundSize: 'cover',
-                backgroundPosition: storeSettings.menu_bg_position || 'center', 
-                backgroundRepeat: 'no-repeat',
-                opacity: currentOpacity
-              }}
-            />
-          )}
-
           <div className="relative z-10 flex flex-col" style={{ minHeight: `${vh}px` }}>
 
             {view === 'menu' && (
               <>
-                <header 
-                  className="shadow-sm sticky top-0 z-40 border-b border-slate-100/10 backdrop-blur-md transition-colors duration-300"
-                  style={{ backgroundColor: storeSettings.menu_bg_type === 'image' ? headerBgWithOpacity : 'transparent' }}
-                >
+                <header className="shadow-sm sticky top-0 z-40 border-b border-slate-100/10 backdrop-blur-md transition-colors duration-300 bg-transparent">
                   <div className="max-w-7xl mx-auto p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 md:gap-5 overflow-hidden">
                       <div className="h-14 w-14 md:h-16 md:w-16 rounded-xl bg-white flex items-center justify-center overflow-hidden border border-slate-200/50 shadow-sm flex-shrink-0">
@@ -469,10 +431,7 @@ function App() {
                   </div>
                 </header>
 
-                <div 
-                  className="sticky top-[81px] md:top-[97px] z-30 border-b border-slate-100/10 shadow-sm backdrop-blur-md transition-colors duration-300"
-                  style={{ backgroundColor: storeSettings.menu_bg_type === 'image' ? headerBgWithOpacity : 'transparent' }}
-                >
+                <div className="sticky top-[81px] md:top-[97px] z-30 border-b border-slate-100/10 shadow-sm backdrop-blur-md transition-colors duration-300 bg-transparent">
                   <nav className="flex gap-3 md:gap-4 overflow-x-auto p-3 md:px-8 md:py-4 max-w-7xl mx-auto no-scrollbar">
                     {categories.map(cat => (
                       <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
