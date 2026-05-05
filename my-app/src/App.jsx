@@ -294,6 +294,16 @@ function App() {
     if (loading) return;
     if (cart.length === 0) return alert("Cart is empty!");
 
+    // 🛡️ DEFENSE 2: Micro-Cooldown (10 Seconds) for Spammers
+    const lastOrderTime = localStorage.getItem('last_order_time');
+    const now = new Date().getTime();
+    
+    // 10000 milliseconds = 10 seconds. 
+    if (lastOrderTime && now - parseInt(lastOrderTime) < 10000) { 
+      alert("⚠️ Processing your previous order. Please wait a few seconds.");
+      return; // Code yahin ruk jayega, aage database ko hit nahi karega
+    }
+
     setLoading(true);
     try {
       const finalTableStatus = tableNumber && tableNumber.toString().trim() !== "" ? tableNumber : "Table Unassigned";
@@ -335,6 +345,8 @@ function App() {
         
         setPlacedOrderItems(prev => [...prev, ...cart]); 
         setCart([]); 
+        // 🛡️ DEFENSE 2: Order successfully database mein jane ke baad time save kar lo
+        localStorage.setItem('last_order_time', new Date().getTime().toString());
         setView('waiter_screen');
       }
     } catch (error) {
