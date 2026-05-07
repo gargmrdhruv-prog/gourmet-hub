@@ -14,6 +14,7 @@ const AdminLogin = ({ onLoginSuccess }) => {
     setError('');
 
     try {
+      console.log("🚨 NAYA DEFENSE 7 CODE CHAL RAHA HAI!");
       const cleanEmail = email.toLowerCase().trim();
       const cleanPassword = password.trim();
 
