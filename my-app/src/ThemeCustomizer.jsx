@@ -18,7 +18,8 @@ const ThemeCustomizer = ({ restaurantId }) => {
     { name: 'Poppins (Modern & Clean)', value: 'Poppins, sans-serif' },
     { name: 'Playfair Display (Premium/Fine Dine)', value: '"Playfair Display", serif' },
     { name: 'Montserrat (Bold & Edgy)', value: 'Montserrat, sans-serif' },
-    { name: 'Caveat (Quirky/Cafe Vibe)', value: 'Caveat, cursive' }
+    { name: 'Caveat (Quirky/Cafe Vibe)', value: 'Caveat, cursive' },
+    { label: 'Royal/Mystic (Cinzel)', value: 'font-cinzel' }
   ];
 
   const buttonOptions = [

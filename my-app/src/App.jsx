@@ -294,23 +294,19 @@ function App() {
     if (loading) return;
     if (cart.length === 0) return alert("Cart is empty!");
 
-    // 🛡️ DEFENSE 2: Micro-Cooldown (10 Seconds) for Spammers
     const lastOrderTime = localStorage.getItem('last_order_time');
     const now = new Date().getTime();
     
-    // 10000 milliseconds = 10 seconds. 
     if (lastOrderTime && now - parseInt(lastOrderTime) < 10000) { 
       alert("⚠️ Processing your previous order. Please wait a few seconds.");
-      return; // Code yahin ruk jayega, aage database ko hit nahi karega
+      return; 
     }
 
     setLoading(true);
     try {
       const finalTableStatus = tableNumber && tableNumber.toString().trim() !== "" ? tableNumber : "Table Unassigned";
 
-      // 🚨 FIX: Fetch current month's count to keep the sequence MMYY-01 strictly unique
       const todayStart = new Date();
-      // Set to the first day of the current month
       const startOfMonth = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
       startOfMonth.setHours(0, 0, 0, 0);
       
@@ -323,7 +319,7 @@ function App() {
       if (countError) throw countError;
       
       const monthlyCount = (count || 0) + 1; 
-      const sequenceNumber = monthlyCount.toString().padStart(2, '0'); // Pads to '01', '02', etc.
+      const sequenceNumber = monthlyCount.toString().padStart(2, '0'); 
       const month = (todayStart.getMonth() + 1).toString().padStart(2, '0');
       const year = todayStart.getFullYear().toString().slice(-2);
       
@@ -345,7 +341,6 @@ function App() {
         
         setPlacedOrderItems(prev => [...prev, ...cart]); 
         setCart([]); 
-        // 🛡️ DEFENSE 2: Order successfully database mein jane ke baad time save kar lo
         localStorage.setItem('last_order_time', new Date().getTime().toString());
         setView('waiter_screen');
       }
@@ -406,6 +401,9 @@ function App() {
 
   const mainBgColor = storeSettings.menu_bg_value || '#f8fafc';
   const isDarkTheme = isDarkColor(mainBgColor);
+  
+  // 🚨 SMART TYPOGRAPHY LOGIC: Agar font 'Cinzel' hai, toh automatically royal look apply hoga
+  const isRoyalFont = storeSettings.theme_font && storeSettings.theme_font.toLowerCase().includes('cinzel');
 
   return (
     <div style={{ fontFamily: storeSettings.theme_font }}>
@@ -421,7 +419,9 @@ function App() {
               <img src={storeSettings.logo} alt="Logo" className="w-24 h-24 md:w-32 md:h-32 object-contain mx-auto mb-6 rounded-2xl bg-white/10 p-2 backdrop-blur-md" />
             )}
             <h2 style={{ color: storeSettings.theme_color }} className="font-serif italic mb-2 text-xl md:text-2xl">Welcome to</h2>
-            <h1 className="text-5xl md:text-7xl font-serif font-black text-white mb-8 tracking-tighter italic">{storeSettings.name}</h1>
+            <h1 className={`text-5xl md:text-7xl font-black text-white mb-8 ${isRoyalFont ? 'uppercase tracking-[0.15em] not-italic' : 'font-serif tracking-tighter italic'}`}>
+              {storeSettings.name}
+            </h1>
             <button 
               onClick={() => setView('menu')} 
               style={{ backgroundColor: storeSettings.theme_color }}
@@ -449,7 +449,9 @@ function App() {
                         {storeSettings.logo ? <img src={storeSettings.logo} alt="Logo" className="h-full w-full object-cover" /> : <span style={{ color: storeSettings.theme_color }} className="font-black text-xl italic">{storeSettings.name.charAt(0)}</span>}
                       </div>
                       <div className="overflow-hidden">
-                        <h1 className={`text-xl md:text-2xl font-black italic leading-tight truncate ${isDarkTheme ? 'text-white' : 'text-slate-800'}`}>{storeSettings.name}</h1>
+                        <h1 className={`text-xl md:text-2xl leading-tight truncate ${isDarkTheme ? 'text-white' : 'text-slate-800'} ${isRoyalFont ? 'uppercase tracking-widest font-black' : 'font-black italic'}`}>
+                          {storeSettings.name}
+                        </h1>
                         {storeSettings.tagline && <p className={`text-[10px] md:text-xs font-bold uppercase tracking-wider mt-0.5 truncate ${isDarkTheme ? 'text-slate-300' : 'text-slate-500'}`}>{storeSettings.tagline}</p>}
                       </div>
                     </div>
@@ -514,7 +516,9 @@ function App() {
                                     <div className="w-3.5 h-3.5 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div></div>
                                   )}
                                 </div>
-                                <h3 className="font-black text-slate-800 text-base md:text-lg leading-tight cursor-pointer" onClick={() => openDishSheet(dish)}>{dish.name}</h3>
+                                <h3 className={`font-black text-slate-800 leading-tight cursor-pointer ${isRoyalFont ? 'uppercase tracking-widest text-sm md:text-base' : 'text-base md:text-lg'}`} onClick={() => openDishSheet(dish)}>
+                                  {dish.name}
+                                </h3>
                               </div>
 
                               {extraTags.length > 0 && (
@@ -606,7 +610,7 @@ function App() {
                            <div className="flex items-start gap-3">
                              <div className="mt-0.5 w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm shrink-0"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
                              <div>
-                               <span className="font-bold text-slate-800 block">{item.name}</span>
+                               <span className={`font-bold text-slate-800 block ${isRoyalFont ? 'uppercase tracking-wider text-xs' : ''}`}>{item.name}</span>
                                {item.selectedVariants && item.selectedVariants.length > 0 && (
                                  <div className="flex flex-wrap gap-1 mt-1.5">
                                    {item.selectedVariants.map((v, i) => (
@@ -781,7 +785,9 @@ function App() {
                     <div className="p-5 md:p-6">
                       <div className="flex items-center gap-2 mb-2">
                          <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
-                         <h2 className="text-xl md:text-2xl font-black text-slate-900">{selectedDish.name}</h2>
+                         <h2 className={`font-black text-slate-900 ${isRoyalFont ? 'uppercase tracking-widest text-lg md:text-xl' : 'text-xl md:text-2xl'}`}>
+                           {selectedDish.name}
+                         </h2>
                       </div>
 
                       {selectedDish.tags && selectedDish.tags.length > 0 && (
@@ -843,18 +849,16 @@ function App() {
 
                       <div className="mb-6 md:mb-8">
                         <h3 className="font-bold text-slate-800 mb-2 md:mb-3 text-xs md:text-sm flex items-center gap-2"><MessageSquare size={14}/> Add a cooking request</h3>
-                        {/* 🛡️ DEFENSE 3: XSS Protection & Input Sanitization */}
-<textarea 
-  placeholder="Any special cooking request? (e.g., Less spicy)" 
-  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-700 outline-none focus:bg-white transition-all resize-none h-24"
-  value={cookingRequest} // Agar aapka variable name alag hai, toh ise change kar lena
-  maxLength={150}        // 🚨 DEFENSE: Max 150 characters (No long scripts allowed)
-  onChange={(e) => {
-    // 🚨 DEFENSE: Turant HTML tags (< aur >) ko remove/block kar do
-    const safeText = e.target.value.replace(/[<>]/g, ""); 
-    setCookingRequest(safeText);
-  }}
-/>
+                        <textarea 
+                          placeholder="Any special cooking request? (e.g., Less spicy)" 
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-700 outline-none focus:bg-white transition-all resize-none h-24"
+                          value={cookingRequest} 
+                          maxLength={150}        
+                          onChange={(e) => {
+                            const safeText = e.target.value.replace(/[<>]/g, ""); 
+                            setCookingRequest(safeText);
+                          }}
+                        />
                       </div>
 
                       {!editingCartItem && getSmartRecs(selectedDish).length > 0 && (
