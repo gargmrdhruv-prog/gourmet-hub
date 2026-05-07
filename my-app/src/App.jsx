@@ -200,8 +200,15 @@ function App() {
     }
   }, [selectedCategory, allDishes]);
 
-  const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qtyToAdd = 1) => {
+const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qtyToAdd = 1) => {
     if (qtyToAdd <= 0) return;
+    
+    // 🛡️ DEFENSE 6: Max Quantity Blocker (Single addition limit)
+    // Koi ek baar mein 20 se zyada items cart mein throw nahi kar sakta
+    if (qtyToAdd > 20) {
+      alert("⚠️ Security Alert: You cannot add more than 20 quantities of a single item at once.");
+      return;
+    }
     
     const variantsTotal = variantsArray.reduce((sum, v) => sum + Number(v.price), 0);
     const actualPrice = Number(dish.price) + variantsTotal;
@@ -217,11 +224,26 @@ function App() {
 
       const existing = workingCart.find(i => i.cartItemId === cartItemId);
       if (existing) {
+        // 🛡️ DEFENSE 6: Max Quantity Blocker (Plus button click limit)
+        // Agar customer + daba daba kar 20 se upar jaye, toh usey roko
+        const newQty = editingCartItem ? qtyToAdd : existing.qty + qtyToAdd;
+        if (newQty > 20) {
+          alert("⚠️ Maximum limit of 20 reached for this item.");
+          return workingCart; // Return old cart, don't increase quantity
+        }
+
         return workingCart.map(i => i.cartItemId === cartItemId 
-            ? { ...i, qty: editingCartItem ? qtyToAdd : i.qty + qtyToAdd, cookingRequest: request || i.cookingRequest } 
+            ? { ...i, qty: newQty, cookingRequest: request || i.cookingRequest } 
             : i
         );
       } else {
+        // 🛡️ DEFENSE 6: Cart Size Blocker
+        // Cart mein total 30 se zyada alag-alag dishes nahi ho sakti
+        if (workingCart.length >= 30) {
+          alert("⚠️ Cart is full! Please place this order first before adding more items.");
+          return workingCart;
+        }
+
         return [...workingCart, { ...dish, cartItemId, price: actualPrice, selectedVariants: variantsArray, cookingRequest: request, qty: qtyToAdd }];
       }
     });
