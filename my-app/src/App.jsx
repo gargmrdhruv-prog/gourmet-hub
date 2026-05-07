@@ -23,6 +23,15 @@ function App() {
   const [filteredDishes, setFilteredDishes] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedDish, setSelectedDish] = useState(null);
+  const [selectedVariants, setSelectedVariants] = useState([]);
+  const [cookingRequest, setCookingRequest] = useState('');
+  const [mainDishQty, setMainDishQty] = useState(1); 
+  const [sheetRecs, setSheetRecs] = useState({}); 
+
+  const [editingCartItem, setEditingCartItem] = useState(null);
+  const [storeSettings, setStoreSettings] = useState(null);
+
   
   const [vh, setVh] = useState(window.innerHeight);
   
