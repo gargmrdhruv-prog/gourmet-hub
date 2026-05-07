@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import { Building2, LayoutDashboard, Wallet, Users, PlusCircle, LogOut, X, Loader2, Edit, Trash2, Menu } from 'lucide-react';
-import ThemeCustomizer from './ThemeCustomizer'; // 🚨 IMPORTED THEME CUSTOMIZER
+import ThemeCustomizer from './ThemeCustomizer';
 
 const SuperAdminDashboard = () => {
   const [restaurants, setRestaurants] = useState([]);
@@ -12,7 +12,7 @@ const SuperAdminDashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null); 
-  const [modalTab, setModalTab] = useState('details'); // 🚨 NEW STATE FOR MODAL TABS
+  const [modalTab, setModalTab] = useState('details'); 
   
   const [newRest, setNewRest] = useState({
     name: '', contact: '', email: '', password: '', address: '', payment: 'unpaid'
@@ -48,10 +48,12 @@ const SuperAdminDashboard = () => {
     e.preventDefault();
     setAdding(true);
     try {
+      const cleanEmail = newRest.email.toLowerCase().trim();
+      
       const payload = {
         name: newRest.name, 
         owner_contact: newRest.contact,
-        email: newRest.email,
+        email: cleanEmail,
         password: newRest.password,
         address: newRest.address,
         subscription_status: newRest.payment,
@@ -59,18 +61,35 @@ const SuperAdminDashboard = () => {
       };
 
       if (editingId) {
+        // Edit Mode: Update existing details
         const { error } = await supabase.from('restaurants').update(payload).eq('id', editingId);
         if (error) throw error;
         alert("✅ Client Details Updated Successfully!");
       } else {
+        // 🛡️ DEFENSE 7 (Part C): Onboarding Auto-Security
+        // Naya restaurant banate waqt, sabse pehle Supabase Auth mein secure user banayenge
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: newRest.password,
+        });
+
+        if (authError) {
+          throw new Error(`Auth Error: ${authError.message} (Database record not created to prevent errors)`);
+        }
+
+        // Auth User banne ke baad, uski details normal table mein save karenge
         const { error, data } = await supabase.from('restaurants').insert([payload]).select();
         if (error) throw error;
         
-        // Ensure settings row exists for new restaurant
+        // Settings row add karna
         if(data && data.length > 0) {
             await supabase.from('restaurant_settings').insert([{ restaurant_id: data[0].id }]);
         }
-        alert("✅ New Client Onboarded Successfully!");
+
+        // Chupke se sign out karna zaroori hai, warna SuperAdmin ka session is naye restaurant se replace ho jayega
+        await supabase.auth.signOut();
+
+        alert("✅ New Client Onboarded & Secured Successfully!");
       }
 
       closeModal();
@@ -93,7 +112,7 @@ const SuperAdminDashboard = () => {
       payment: rest.subscription_status || 'unpaid'
     });
     setEditingId(rest.id);
-    setModalTab('details'); // Reset tab to details
+    setModalTab('details'); 
     setIsModalOpen(true);
   };
 
@@ -331,7 +350,6 @@ const SuperAdminDashboard = () => {
                   </button>
                 </form>
               ) : (
-                /* 🚨 THEME CUSTOMIZER COMPONENT PLACEMENT */
                 <ThemeCustomizer restaurantId={editingId} />
               )}
             </div>
