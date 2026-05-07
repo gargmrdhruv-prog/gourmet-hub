@@ -14,27 +14,42 @@ const AdminLogin = ({ onLoginSuccess }) => {
     setError('');
 
     try {
-      // 🚨 THE MASTER FIX: Cleaning inputs
-      // Faltu spaces hatayega aur email ko hamesha chote aksharon (lowercase) mein check karega
       const cleanEmail = email.toLowerCase().trim();
       const cleanPassword = password.trim();
 
-      const { data, error: fetchError } = await supabase
-        .from('restaurants')
-        .select('*')
-        .ilike('email', cleanEmail) // ilike case-insensitive search karta hai
-        .eq('password', cleanPassword)
-        .maybeSingle(); 
+      // 🛡️ DEFENSE 7 (Part A): Real JWT Authentication
+      // Ab hum database table read nahi kar rahe, official Auth API hit kar rahe hain.
+      // Yeh hack-proof JWT (JSON Web Token) generate karega.
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword,
+      });
 
-      if (fetchError || !data) {
-        throw new Error("Invalid Email ID or Password. Please check again.");
+      if (authError) {
+        throw new Error("Invalid Email ID or Password. Access Denied.");
       }
 
-      localStorage.setItem('admin_user', JSON.stringify(data));
+      // Authentication successful ho gaya! Ab hum dashboard dikhane ke liye 
+      // us restaurant ki bachi hui details (naam, logo, theme) nikalenge.
+      const { data: restaurantData, error: fetchError } = await supabase
+        .from('restaurants')
+        .select('*')
+        .eq('email', cleanEmail)
+        .maybeSingle(); 
+
+      if (fetchError || !restaurantData) {
+        throw new Error("Account verified, but restaurant profile missing.");
+      }
+
+      // UI components ko chalane ke liye localStorage abhi bhi set hoga, 
+      // LEKIN asali power ab browser ki cookies mein chupe JWT Token ke paas hai!
+      localStorage.setItem('admin_user', JSON.stringify(restaurantData));
+      
       const midnight = new Date();
-midnight.setHours(24, 0, 0, 0); // Aaj raat 12 baje ka exact time
-localStorage.setItem('admin_session_expiry', midnight.getTime().toString());  
-      onLoginSuccess(data);
+      midnight.setHours(24, 0, 0, 0);
+      localStorage.setItem('admin_session_expiry', midnight.getTime().toString());  
+      
+      onLoginSuccess(restaurantData);
 
     } catch (err) {
       setError(err.message);

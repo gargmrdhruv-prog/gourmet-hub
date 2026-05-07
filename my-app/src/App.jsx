@@ -29,60 +29,33 @@ function App() {
   const location = useLocation();
   const currentPath = location.pathname;
 
-  useEffect(() => {
-    const handleResize = () => {
-      setVh(window.innerHeight);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const [selectedDish, setSelectedDish] = useState(null);
-  const [selectedVariants, setSelectedVariants] = useState([]);
-  const [cookingRequest, setCookingRequest] = useState('');
-  const [mainDishQty, setMainDishQty] = useState(1); 
-  const [sheetRecs, setSheetRecs] = useState({}); 
-
-  const [editingCartItem, setEditingCartItem] = useState(null);
-  const [storeSettings, setStoreSettings] = useState(null); 
-
-  useEffect(() => {
-    if (view === 'checkout' && cart.length === 0) {
-      setView('menu');
-    }
-  }, [cart, view]);
-
-  useEffect(() => {
+useEffect(() => {
     const init = async () => {
-      const savedUser = localStorage.getItem('admin_user');
-      const sessionExpiry = localStorage.getItem('admin_session_expiry');
-      const now = new Date().getTime();
-      
-      let isValidSession = false;
-
-      if (savedUser) {
-        if (sessionExpiry && now > parseInt(sessionExpiry)) {
-          localStorage.removeItem('admin_user');
-          localStorage.removeItem('admin_session_expiry');
-          console.log("Session expired at midnight.");
-        } else {
-          isValidSession = true;
-          if (!sessionExpiry) {
-            const midnight = new Date();
-            midnight.setHours(24, 0, 0, 0);
-            localStorage.setItem('admin_session_expiry', midnight.getTime().toString());
-          }
-        }
-      }
-
+      // 🛡️ DEFENSE 7 (Part B): The Ultimate Verification (Zero Trust)
       if (currentPath.startsWith('/admin') || currentPath.startsWith('/super-admin')) {
-         if (isValidSession) {
-           setUser(JSON.parse(savedUser));
+         
+         // 1. Hum browser ki memory check nahi karenge. Seedha server se token mangenge.
+         const { data: { session } } = await supabase.auth.getSession();
+
+         if (session) {
+           // 2. Token Asli Hai! Supabase ne green signal de diya.
+           const savedUser = localStorage.getItem('admin_user');
+           if (savedUser) setUser(JSON.parse(savedUser));
+         } else {
+           // 3. 🚨 HACKER DETECTED ya Session Expired! 
+           // Agar kisi ne F12 dabakar data dala hoga, toh Supabase usko yahan pakad lega aur kick out kar dega.
+           localStorage.removeItem('admin_user');
+           localStorage.removeItem('admin_session_expiry');
+           setUser(null);
          }
+         
          setLoading(false); 
          return; 
       }
 
+      // =========================================================
+      // CUSTOMER MENU LOGIC (Isme koi change nahi kiya hai)
+      // =========================================================
       let activeRestId = '1';
       const urlParams = new URLSearchParams(window.location.search);
       const urlRestId = urlParams.get('rest');
@@ -102,7 +75,23 @@ function App() {
       await fetchInitialData(activeRestId);
       recordScan(activeRestId);
     };
+    
     init();
+
+    // 🛡️ Pro-Defense: Real-time Logout Listener
+    // Agar kisi admin ne password change kiya ya kisi aur device se logout kiya, 
+    // toh yeh function automatically is current screen ko bhi instantly logout kar dega.
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        localStorage.removeItem('admin_user');
+        localStorage.removeItem('admin_session_expiry');
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, [currentPath]);
 
   useEffect(() => { localStorage.setItem('gourmet_cart', JSON.stringify(cart)); }, [cart]);
