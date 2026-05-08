@@ -11,14 +11,15 @@ import {
   Plus
 } from 'lucide-react';
 
+// 🚨 FIX 3: Moved Audio outside to prevent re-initialization on every render
+const notificationSound = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1150-pristine.mp3');
+
 const LiveOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   
   const [dateFilter, setDateFilter] = useState('today'); 
   const [customDate, setCustomDate] = useState('');
-
-  const notificationSound = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1150-pristine.mp3');
 
   useEffect(() => {
     fetchOrders();
@@ -32,18 +33,20 @@ const LiveOrders = () => {
         'postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'orders' }, 
         (payload) => {
-          if (payload.new.restaurant_id === admin.id) {
+          // 🚨 FIX 1: Strict Type Conversion to prevent Number vs String mismatch
+          if (String(payload.new.restaurant_id) === String(admin.id)) {
             notificationSound.play().catch(err => {
               console.log("Audio Playback blocked.");
             });
             
-            // 🚨 REALTIME FIX: Smart monthly sequential ID generator for newly incoming live orders
             setOrders((currentOrders) => {
-               const d = new Date(payload.new.created_at);
+               // 🚨 FIX 2: Fallback date in case real-time payload delays created_at injection
+               const safeDateString = payload.new.created_at || new Date().toISOString();
+               const d = new Date(safeDateString);
                const monthTracker = `${d.getMonth()}-${d.getFullYear()}`;
                
                const monthOrdersCount = currentOrders.filter(o => {
-                  const od = new Date(o.created_at);
+                  const od = o.created_at ? new Date(o.created_at) : new Date();
                   return `${od.getMonth()}-${od.getFullYear()}` === monthTracker;
                }).length;
                
@@ -54,6 +57,7 @@ const LiveOrders = () => {
                
                const newOrderWithId = {
                  ...payload.new,
+                 created_at: safeDateString, // Guarantee a date exists for the filter
                  displayId: `#${month}${year}-${seq}`
                };
                
@@ -66,7 +70,7 @@ const LiveOrders = () => {
         'postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'orders' }, 
         (payload) => {
-          if (payload.new.restaurant_id === admin.id) {
+          if (String(payload.new.restaurant_id) === String(admin.id)) {
             setOrders((currentOrders) => 
               currentOrders.map(order => 
                 order.id === payload.new.id ? { ...order, ...payload.new } : order
@@ -98,9 +102,8 @@ const LiveOrders = () => {
       let currentMonthTracker = '';
       let monthlyCounter = 0; 
 
-      // 🚨 MASTER SEQUENCE LOGIC: Generate globally unique, MMYY-prefixed IDs
       const sequencedOrders = (data || []).map(order => {
-        const dateObj = new Date(order.created_at);
+        const dateObj = order.created_at ? new Date(order.created_at) : new Date();
         const monthTracker = `${dateObj.getMonth()}-${dateObj.getFullYear()}`;
         
         if (monthTracker !== currentMonthTracker) {
@@ -133,7 +136,8 @@ const LiveOrders = () => {
     const now = new Date();
     
     return orders.filter(order => {
-      const orderDate = new Date(order.created_at);
+      // 🚨 FIX 2 (Part B): Ensure missing dates don't break the UI filter
+      const orderDate = order.created_at ? new Date(order.created_at) : new Date();
       
       if (dateFilter === 'today') {
         return orderDate.toDateString() === now.toDateString();
@@ -223,7 +227,7 @@ const LiveOrders = () => {
                     <UtensilsCrossed size={18} className="text-orange-500" /> {order.table_number !== "Takeaway / Parcel" && order.table_number !== "Table Unassigned" ? `Table ${order.table_number}` : "Pending Table"}
                   </h3>
                   <div className="flex items-center gap-1.5 text-slate-400 text-[9px] font-bold uppercase tracking-wider mt-1">
-                    <Clock size={10} /> {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <Clock size={10} /> {new Date(order.created_at || new Date()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
                 <span className="bg-slate-50 text-slate-400 border border-slate-200 text-[10px] px-2 py-1 rounded-md font-black tracking-widest">
