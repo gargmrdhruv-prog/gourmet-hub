@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 
 // 🚨 FIX 3: Moved Audio outside to prevent re-initialization on every render
-const notificationSound = new Audio('https://notificationsounds.com/storage/sounds/file-sounds-1150-pristine.mp3');
+const notificationSound = new Audio('bell.mp3');
+notificationSound.preload = 'auto'; // 🚨 Yeh line browser ko force karegi ki sound hamesha RAM mein ready rakhe
 
 const LiveOrders = () => {
   const [orders, setOrders] = useState([]);
