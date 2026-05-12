@@ -4,7 +4,7 @@ import AdminLogin from './AdminLogin';
 import AdminDashboard from './AdminDashboard';
 import Settings from "./Settings";
 import SuperAdminDashboard from './SuperAdminDashboard'; 
-import { Loader2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, Edit3, BellRing } from 'lucide-react';
+import { Loader2, ChevronLeft, X, Star, ChevronRight, MessageSquare, Plus, Edit3, BellRing, Grid, ArrowLeft } from 'lucide-react';
 import SuperAdminLogin from './SuperAdminLogin';
 import { Navigate, useLocation } from 'react-router-dom';
 
@@ -32,7 +32,6 @@ function App() {
   const [editingCartItem, setEditingCartItem] = useState(null);
   const [storeSettings, setStoreSettings] = useState(null);
 
-  
   const [vh, setVh] = useState(window.innerHeight);
   
   const location = useLocation();
@@ -40,19 +39,13 @@ function App() {
 
 useEffect(() => {
     const init = async () => {
-      // 🛡️ DEFENSE 7 (Part B): The Ultimate Verification (Zero Trust)
       if (currentPath.startsWith('/admin') || currentPath.startsWith('/super-admin')) {
-         
-         // 1. Hum browser ki memory check nahi karenge. Seedha server se token mangenge.
          const { data: { session } } = await supabase.auth.getSession();
 
          if (session) {
-           // 2. Token Asli Hai! Supabase ne green signal de diya.
            const savedUser = localStorage.getItem('admin_user');
            if (savedUser) setUser(JSON.parse(savedUser));
          } else {
-           // 3. 🚨 HACKER DETECTED ya Session Expired! 
-           // Agar kisi ne F12 dabakar data dala hoga, toh Supabase usko yahan pakad lega aur kick out kar dega.
            localStorage.removeItem('admin_user');
            localStorage.removeItem('admin_session_expiry');
            setUser(null);
@@ -62,9 +55,6 @@ useEffect(() => {
          return; 
       }
 
-      // =========================================================
-      // CUSTOMER MENU LOGIC (Isme koi change nahi kiya hai)
-      // =========================================================
       let activeRestId = '1';
       const urlParams = new URLSearchParams(window.location.search);
       const urlRestId = urlParams.get('rest');
@@ -87,9 +77,6 @@ useEffect(() => {
     
     init();
 
-    // 🛡️ Pro-Defense: Real-time Logout Listener
-    // Agar kisi admin ne password change kiya ya kisi aur device se logout kiya, 
-    // toh yeh function automatically is current screen ko bhi instantly logout kar dega.
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -146,6 +133,9 @@ useEffect(() => {
       const { data: catData } = await supabase.from('subcategories').select('*').eq('restaurant_id', restId);
       const { data: dishData } = await supabase.from('dishes').select('*').eq('restaurant_id', restId);
       
+      const { data: restData } = await supabase.from('restaurants').select('menu_style').eq('id', restId).maybeSingle();
+      const menuStyle = restData?.menu_style || 'classic';
+
       const { data: settingsData } = await supabase.from('restaurant_settings')
         .select('*, primary_color, font_family, button_style')
         .eq('restaurant_id', restId)
@@ -162,14 +152,16 @@ useEffect(() => {
           theme_font: settingsData.font_family || 'Poppins, sans-serif',
           theme_button: settingsData.button_style || 'rounded-full',
           menu_bg_value: settingsData.menu_bg_value || '#f8fafc',
-          strict_table_mode: settingsData.strict_table_mode || false
+          strict_table_mode: settingsData.strict_table_mode || false,
+          menu_style: menuStyle 
         });
       } else {
         setStoreSettings({ 
           name: 'Welcome to Our Menu', logo: '', tagline: '', welcome_bg_url: '', taxes: [], 
           theme_color: '#F59E0B', theme_font: 'Poppins, sans-serif', theme_button: 'rounded-full',
           menu_bg_value: '#f8fafc',
-          strict_table_mode: false
+          strict_table_mode: false,
+          menu_style: menuStyle
         });
       }
 
@@ -177,9 +169,14 @@ useEffect(() => {
       setAllDishes(dishData || []);
 
       if (catData && catData.length > 0) {
-        const firstCategoryId = catData[0].id;
-        setSelectedCategory(firstCategoryId);
-        setFilteredDishes((dishData || []).filter(d => d.subcategory_id === firstCategoryId));
+        if (menuStyle === 'category_hero') {
+           setSelectedCategory(null);
+           setFilteredDishes(dishData || []);
+        } else {
+           const firstCategoryId = catData[0].id;
+           setSelectedCategory(firstCategoryId);
+           setFilteredDishes((dishData || []).filter(d => d.subcategory_id === firstCategoryId));
+        }
       } else {
         setFilteredDishes([]);
       }
@@ -201,8 +198,6 @@ useEffect(() => {
 const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qtyToAdd = 1) => {
     if (qtyToAdd <= 0) return;
     
-    // 🛡️ DEFENSE 6: Max Quantity Blocker (Single addition limit)
-    // Koi ek baar mein 20 se zyada items cart mein throw nahi kar sakta
     if (qtyToAdd > 20) {
       alert("⚠️ Security Alert: You cannot add more than 20 quantities of a single item at once.");
       return;
@@ -222,12 +217,10 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
 
       const existing = workingCart.find(i => i.cartItemId === cartItemId);
       if (existing) {
-        // 🛡️ DEFENSE 6: Max Quantity Blocker (Plus button click limit)
-        // Agar customer + daba daba kar 20 se upar jaye, toh usey roko
         const newQty = editingCartItem ? qtyToAdd : existing.qty + qtyToAdd;
         if (newQty > 20) {
           alert("⚠️ Maximum limit of 20 reached for this item.");
-          return workingCart; // Return old cart, don't increase quantity
+          return workingCart; 
         }
 
         return workingCart.map(i => i.cartItemId === cartItemId 
@@ -235,8 +228,6 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
             : i
         );
       } else {
-        // 🛡️ DEFENSE 6: Cart Size Blocker
-        // Cart mein total 30 se zyada alag-alag dishes nahi ho sakti
         if (workingCart.length >= 30) {
           alert("⚠️ Cart is full! Please place this order first before adding more items.");
           return workingCart;
@@ -421,8 +412,6 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
 
   const mainBgColor = storeSettings.menu_bg_value || '#f8fafc';
   const isDarkTheme = isDarkColor(mainBgColor);
-  
-  // 🚨 SMART TYPOGRAPHY LOGIC: Agar font 'Cinzel' hai, toh automatically royal look apply hoga
   const isRoyalFont = storeSettings.theme_font && storeSettings.theme_font.toLowerCase().includes('cinzel');
 
   return (
@@ -486,6 +475,15 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
 
                 <div className="sticky top-[81px] md:top-[97px] z-30 border-b border-slate-100/10 shadow-sm backdrop-blur-md transition-colors duration-300 bg-transparent">
                   <nav className="flex gap-3 md:gap-4 overflow-x-auto p-3 md:px-8 md:py-4 max-w-7xl mx-auto no-scrollbar">
+                    
+                    {storeSettings.menu_style === 'category_hero' && (
+                       <button onClick={() => setSelectedCategory(null)}
+                         style={selectedCategory === null ? { backgroundColor: storeSettings.theme_color, color: 'white', borderColor: storeSettings.theme_color } : {}}
+                         className={`px-5 py-2.5 md:py-2 md:px-6 rounded-full text-[11px] md:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-2 ${selectedCategory === null ? 'shadow-md opacity-100' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 shadow-sm'}`}>
+                         <Grid size={14} /> Categories
+                       </button>
+                    )}
+
                     {categories.map(cat => (
                       <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
                         style={selectedCategory === cat.id ? { backgroundColor: storeSettings.theme_color, color: 'white', borderColor: storeSettings.theme_color } : {}}
@@ -497,14 +495,90 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                 </div>
 
                 <div className="max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8 flex-1 pb-32">
-                  {filteredDishes.length === 0 ? (
+                  
+                  {storeSettings.menu_style === 'category_hero' && selectedCategory === null ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 animate-in fade-in slide-in-from-bottom-4">
+                      {categories.map(cat => (
+                         <div key={cat.id} onClick={() => setSelectedCategory(cat.id)} className="relative h-48 md:h-64 rounded-3xl overflow-hidden cursor-pointer shadow-md group border border-slate-100/20">
+                            <img src={cat.image_url || `https://source.unsplash.com/600x600/?food,${cat.name}`} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={cat.name} />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end p-4 md:p-6">
+                               <span className="text-white font-black text-lg md:text-2xl tracking-wide">{cat.name}</span>
+                            </div>
+                         </div>
+                      ))}
+                    </div>
+                  ) : filteredDishes.length === 0 ? (
                     <div className="flex flex-col items-center justify-center text-center py-20 px-4">
                       <span className="text-5xl grayscale opacity-50 mb-4">🍽️</span>
                       <h3 className={`text-2xl font-serif font-black mb-2 italic ${isDarkTheme ? 'text-white' : 'text-slate-800'}`}>Menu is Brewing</h3>
                       <p className={`text-xs font-bold uppercase tracking-widest ${isDarkTheme ? 'text-slate-400' : 'text-slate-500'}`}>Chef is curating dishes for this category.</p>
                     </div>
+                  ) : storeSettings.menu_style === 'category_hero' ? (
+                    
+                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4">
+                      {filteredDishes.map(dish => {
+                        const cartItemsForDish = cart.filter(i => i.id === dish.id);
+                        const totalQtyInCart = cartItemsForDish.reduce((sum, item) => sum + item.qty, 0);
+                        const isNonVeg = dish.tags?.some(t => t.toLowerCase().includes('non-veg'));
+                        const extraTags = dish.tags?.filter(t => t !== 'Veg 🟢' && t !== 'Non-Veg 🔴' && t !== 'Bestseller ⭐') || [];
+
+                        return (
+                          <div key={dish.id} className="bg-white/95 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                              <div className="flex-1 pr-0 sm:pr-4">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <div className="flex-shrink-0">
+                                    {isNonVeg ? (
+                                      <div className="w-3.5 h-3.5 border-2 border-red-500 flex items-center justify-center rounded-sm"><div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div></div>
+                                    ) : (
+                                      <div className="w-3.5 h-3.5 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div></div>
+                                    )}
+                                  </div>
+                                  <h3 className={`font-black text-slate-800 leading-tight cursor-pointer ${isRoyalFont ? 'uppercase tracking-widest text-sm md:text-base' : 'text-lg md:text-xl'}`} onClick={() => openDishSheet(dish)}>
+                                    {dish.name}
+                                  </h3>
+                                </div>
+                                {dish.description && <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">{dish.description}</p>}
+                                
+                                {extraTags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {extraTags.map((tag, idx) => (
+                                      <span key={idx} style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}15`, borderColor: `${storeSettings.theme_color}30` }} className="text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-widest">
+                                        {tag}
+                                      </span>
+                                    ))}
+                                    {dish.tags?.some(t => t.toLowerCase().includes('bestseller')) && (
+                                       <span style={{ backgroundColor: storeSettings.theme_color }} className="text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded shadow-sm">⭐ Bestseller</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
+                                <span className="font-black text-slate-900 text-lg md:text-xl">₹{dish.price}</span>
+                                
+                                {dish.is_available === false ? (
+                                  <button disabled className={`bg-slate-50 text-slate-300 px-4 py-2 ${storeSettings.theme_button} font-black text-xs uppercase border border-slate-100`}>Out</button>
+                                ) : totalQtyInCart > 0 ? (
+                                   <div style={{ backgroundColor: `${storeSettings.theme_color}10`, borderColor: `${storeSettings.theme_color}30` }} className={`flex items-center gap-3 ${storeSettings.theme_button} px-2 py-1.5 border`}>
+                                      <button onClick={() => removeFromCart(cartItemsForDish[0].cartItemId)} style={{ color: storeSettings.theme_color }} className="font-black text-base px-2">-</button>
+                                      <span style={{ color: storeSettings.theme_color }} className="text-sm font-black">{totalQtyInCart}</span>
+                                      <button onClick={() => openDishSheet(dish)} style={{ color: storeSettings.theme_color }} className="font-black text-base px-2">+</button>
+                                   </div>
+                                ) : (
+                                  <button onClick={() => openDishSheet(dish)} style={{ backgroundColor: storeSettings.theme_color, color: 'white' }} className={`px-6 py-2 ${storeSettings.theme_button} font-black text-xs uppercase tracking-widest shadow-sm active:scale-95 transition-all`}>
+                                    Add
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 md:gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 md:gap-6 animate-in fade-in slide-in-from-bottom-4">
                       {filteredDishes.map(dish => {
                         const cartItemsForDish = cart.filter(i => i.id === dish.id);
                         const totalQtyInCart = cartItemsForDish.reduce((sum, item) => sum + item.qty, 0);
@@ -538,7 +612,7 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                                 </div>
                                 <h3 className={`font-black text-slate-800 leading-tight cursor-pointer ${isRoyalFont ? 'uppercase tracking-widest text-sm md:text-base' : 'text-base md:text-lg'}`} onClick={() => openDishSheet(dish)}>
                                   {dish.name}
-                                </h3>
+                               </h3>
                               </div>
 
                               {extraTags.length > 0 && (

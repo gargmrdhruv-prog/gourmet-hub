@@ -14,8 +14,9 @@ const SuperAdminDashboard = () => {
   const [editingId, setEditingId] = useState(null); 
   const [modalTab, setModalTab] = useState('details'); 
   
+  // 🚨 ADDED: menu_style in default state
   const [newRest, setNewRest] = useState({
-    name: '', contact: '', email: '', password: '', address: '', payment: 'unpaid'
+    name: '', contact: '', email: '', password: '', address: '', payment: 'unpaid', menu_style: 'classic'
   });
 
   const [metrics, setMetrics] = useState({ total: 0, active: 0, paid: 0, revenue: 0 });
@@ -50,6 +51,7 @@ const SuperAdminDashboard = () => {
     try {
       const cleanEmail = newRest.email.toLowerCase().trim();
       
+      // 🚨 ADDED: menu_style in payload
       const payload = {
         name: newRest.name, 
         owner_contact: newRest.contact,
@@ -57,17 +59,15 @@ const SuperAdminDashboard = () => {
         password: newRest.password,
         address: newRest.address,
         subscription_status: newRest.payment,
+        menu_style: newRest.menu_style,
         status: 'active'
       };
 
       if (editingId) {
-        // Edit Mode: Update existing details
         const { error } = await supabase.from('restaurants').update(payload).eq('id', editingId);
         if (error) throw error;
         alert("✅ Client Details Updated Successfully!");
       } else {
-        // 🛡️ DEFENSE 7 (Part C): Onboarding Auto-Security
-        // Naya restaurant banate waqt, sabse pehle Supabase Auth mein secure user banayenge
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: cleanEmail,
           password: newRest.password,
@@ -77,16 +77,13 @@ const SuperAdminDashboard = () => {
           throw new Error(`Auth Error: ${authError.message} (Database record not created to prevent errors)`);
         }
 
-        // Auth User banne ke baad, uski details normal table mein save karenge
         const { error, data } = await supabase.from('restaurants').insert([payload]).select();
         if (error) throw error;
         
-        // Settings row add karna
         if(data && data.length > 0) {
             await supabase.from('restaurant_settings').insert([{ restaurant_id: data[0].id }]);
         }
 
-        // Chupke se sign out karna zaroori hai, warna SuperAdmin ka session is naye restaurant se replace ho jayega
         await supabase.auth.signOut();
 
         alert("✅ New Client Onboarded & Secured Successfully!");
@@ -103,13 +100,15 @@ const SuperAdminDashboard = () => {
   };
 
   const openEditModal = (rest) => {
+    // 🚨 ADDED: Fetch existing menu_style or fallback to classic
     setNewRest({
       name: rest.name || '',
       contact: rest.owner_contact || '',
       email: rest.email || '',
       password: rest.password || '',
       address: rest.address || '',
-      payment: rest.subscription_status || 'unpaid'
+      payment: rest.subscription_status || 'unpaid',
+      menu_style: rest.menu_style || 'classic'
     });
     setEditingId(rest.id);
     setModalTab('details'); 
@@ -133,7 +132,8 @@ const SuperAdminDashboard = () => {
     setIsModalOpen(false);
     setEditingId(null);
     setModalTab('details');
-    setNewRest({ name: '', contact: '', email: '', password: '', address: '', payment: 'unpaid' });
+    // 🚨 ADDED: Reset menu_style to default
+    setNewRest({ name: '', contact: '', email: '', password: '', address: '', payment: 'unpaid', menu_style: 'classic' });
   };
 
   if (loading) {
@@ -148,7 +148,6 @@ const SuperAdminDashboard = () => {
   return (
     <div className="flex min-h-screen bg-slate-50 relative">
       
-      {/* MOBILE OVERLAY */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" 
@@ -156,7 +155,6 @@ const SuperAdminDashboard = () => {
         />
       )}
 
-      {/* --- SIDEBAR --- */}
       <aside className={`fixed inset-y-0 left-0 w-64 bg-black text-white p-6 flex flex-col z-50 shadow-2xl transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div className="mb-10 flex justify-between items-center">
           <div>
@@ -190,9 +188,7 @@ const SuperAdminDashboard = () => {
         </div>
       </aside>
 
-      {/* --- MAIN CONTENT --- */}
       <main className="flex-1 md:ml-64 w-full">
-        {/* MOBILE HEADER */}
         <div className="md:hidden bg-white h-16 border-b border-gray-200 flex items-center px-4 sticky top-0 z-30">
           <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-slate-800">
             <Menu size={24} />
@@ -210,7 +206,6 @@ const SuperAdminDashboard = () => {
             </button>
           </div>
 
-          {/* TAB 1: DASHBOARD */}
           {activeTab === 'dashboard' && (
             <div className="animate-in fade-in slide-in-from-bottom-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
@@ -239,7 +234,6 @@ const SuperAdminDashboard = () => {
             </div>
           )}
 
-          {/* TAB 2: RESTAURANTS TABLE */}
           {activeTab === 'restaurants' && (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4">
               <div className="p-4 md:p-6 border-b border-slate-100 flex justify-between items-center">
@@ -252,7 +246,7 @@ const SuperAdminDashboard = () => {
                       <th className="p-3 md:p-4">ID</th>
                       <th className="p-3 md:p-4">Restaurant</th>
                       <th className="p-3 md:p-4">Email ID</th>
-                      <th className="p-3 md:p-4">Status</th>
+                      <th className="p-3 md:p-4">Style</th>
                       <th className="p-3 md:p-4 text-center">Actions</th>
                     </tr>
                   </thead>
@@ -263,8 +257,9 @@ const SuperAdminDashboard = () => {
                         <td className="p-3 md:p-4 text-xs md:text-sm font-black text-slate-800">{rest.name}</td>
                         <td className="p-3 md:p-4 text-xs md:text-sm font-medium text-slate-500">{rest.email || 'N/A'}</td>
                         <td className="p-3 md:p-4">
-                          <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2 py-1 md:px-3 md:py-1 rounded-full ${rest.subscription_status === 'paid' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
-                            {rest.subscription_status}
+                          {/* 🚨 ADDED: Visual indicator for the selected UI theme */}
+                          <span className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2 py-1 md:px-3 md:py-1 rounded-full ${rest.menu_style === 'category_hero' ? 'bg-purple-100 text-purple-600' : 'bg-slate-200 text-slate-600'}`}>
+                            {rest.menu_style === 'category_hero' ? 'Premium UI' : 'Classic'}
                           </span>
                         </td>
                         <td className="p-3 md:p-4 text-center flex justify-center gap-2 md:gap-3">
@@ -285,7 +280,6 @@ const SuperAdminDashboard = () => {
         </div>
       </main>
 
-      {/* MODAL (ADD & EDIT) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 overflow-y-auto">
           <div className="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl overflow-hidden my-8">
@@ -294,7 +288,6 @@ const SuperAdminDashboard = () => {
               <button onClick={closeModal} className="text-slate-400 hover:text-red-500 bg-white p-2 rounded-full shadow-sm"><X size={18} /></button>
             </div>
             
-            {/* 🚨 MODAL TABS FOR EDITING 🚨 */}
             {editingId && (
               <div className="flex border-b border-slate-100">
                 <button 
@@ -337,12 +330,22 @@ const SuperAdminDashboard = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase block mb-1.5 md:mb-2">Payment Status</label>
-                    <select value={newRest.payment} onChange={(e) => setNewRest({...newRest, payment: e.target.value})} className="w-full bg-slate-50 rounded-xl p-3 md:p-4 text-sm md:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500">
-                      <option value="paid">✅ Paid (Active)</option>
-                      <option value="unpaid">⏳ Unpaid (Trial)</option>
-                    </select>
+                  {/* 🚨 ADDED: The UI Style Selector & Payment Status Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div>
+                      <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase block mb-1.5 md:mb-2">Payment Status</label>
+                      <select value={newRest.payment} onChange={(e) => setNewRest({...newRest, payment: e.target.value})} className="w-full bg-slate-50 rounded-xl p-3 md:p-4 text-sm md:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500">
+                        <option value="paid">✅ Paid (Active)</option>
+                        <option value="unpaid">⏳ Unpaid (Trial)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase block mb-1.5 md:mb-2">Menu Theme / UI Style</label>
+                      <select value={newRest.menu_style} onChange={(e) => setNewRest({...newRest, menu_style: e.target.value})} className="w-full bg-slate-50 rounded-xl p-3 md:p-4 text-sm md:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-orange-500">
+                        <option value="classic">🍔 Classic (Item Photos)</option>
+                        <option value="category_hero">✨ Premium (Category Hero)</option>
+                      </select>
+                    </div>
                   </div>
 
                   <button type="submit" disabled={adding} className="w-full bg-orange-500 text-white py-3 md:py-4 rounded-xl font-black text-sm md:text-base shadow-xl hover:bg-orange-600 flex justify-center items-center">

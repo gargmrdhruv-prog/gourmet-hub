@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from './AdminLayout';
 import { supabase } from './supabase';
 import { 
-  Plus, Edit2, Trash2, X, Loader2, UploadCloud, Link, CheckCircle2, Star
+  Plus, Edit2, Trash2, X, Loader2, UploadCloud, Link, CheckCircle2, Star, Image as ImageIcon
 } from 'lucide-react';
 
 const MenuManagement = () => {
@@ -12,7 +12,13 @@ const MenuManagement = () => {
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  
+  // 🚨 UI STATE: Store the theme style of current restaurant
+  const [menuStyle, setMenuStyle] = useState('classic');
+  
   const [imageFile, setImageFile] = useState(null);
+  const [categoryImageFile, setCategoryImageFile] = useState(null); // 🚨 New state for Category Hero Image
+  
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryText, setNewCategoryText] = useState("");
   
@@ -26,9 +32,23 @@ const MenuManagement = () => {
   const availableTags = ['Veg 🟢', 'Non-Veg 🔴', 'Bestseller ⭐', 'Spicy 🌶️', "Chef's Special 👨‍🍳", 'Sweet 🍯'];
 
   useEffect(() => {
+    fetchMenuStyle(); // 🚨 Fetch the theme style first
     fetchDishes();
     fetchCategories();
   }, []);
+
+  // 🚨 NEW FUNCTION: Fetch the assigned menu theme from Super Admin
+  async function fetchMenuStyle() {
+    try {
+      const admin = JSON.parse(localStorage.getItem('admin_user'));
+      const { data, error } = await supabase.from('restaurants').select('menu_style').eq('id', admin.id).single();
+      if (!error && data && data.menu_style) {
+        setMenuStyle(data.menu_style);
+      }
+    } catch (err) {
+      console.log("Error fetching menu style:", err);
+    }
+  }
 
   async function fetchDishes() {
     setLoading(true);
@@ -70,6 +90,7 @@ const MenuManagement = () => {
   const uploadImage = async (file) => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random()}.${fileExt}`;
+    // Reusing the Dishes_pics bucket for both dish and category images to save storage architecture
     const { error: uploadError } = await supabase.storage.from('Dishes_pics').upload(fileName, file);
     if (uploadError) throw uploadError;
     const { data } = supabase.storage.from('Dishes_pics').getPublicUrl(fileName);
@@ -83,6 +104,7 @@ const MenuManagement = () => {
     });
     setEditingId(null);
     setImageFile(null);
+    setCategoryImageFile(null); // Reset category image
     setIsModalOpen(false);
     setIsAddingCategory(false);
     setNewCategoryText("");
@@ -169,19 +191,43 @@ const MenuManagement = () => {
 
     try {
       const admin = JSON.parse(localStorage.getItem('admin_user')); 
+      
+      // 🚨 DYNAMIC IMAGE LOGIC: Only process dish image if it's the classic UI
       let imageUrl = editingId ? dishes.find(d => d.id === editingId).image_url : '';
-      if (imageFile) imageUrl = await uploadImage(imageFile);
+      if (menuStyle === 'classic' && imageFile) {
+        imageUrl = await uploadImage(imageFile);
+      }
 
       let finalCategoryId = newDish.category_id;
+      
       if (isAddingCategory && newCategoryText.trim() !== '') {
-        const { data: newCat, error: catError } = await supabase.from('subcategories').insert([{ name: newCategoryText.trim(), restaurant_id: admin.id }]).select().single();
+        // 🚨 CATEGORY HERO LOGIC
+        let catImageUrl = null;
+        if (menuStyle === 'category_hero') {
+          if (!categoryImageFile) {
+            throw new Error("Premium UI Requires a Hero Image for every new category. Please upload an image.");
+          }
+          catImageUrl = await uploadImage(categoryImageFile);
+        }
+
+        const { data: newCat, error: catError } = await supabase
+            .from('subcategories')
+            .insert([{ 
+                name: newCategoryText.trim(), 
+                restaurant_id: admin.id,
+                image_url: catImageUrl // Save image URL to DB
+            }])
+            .select()
+            .single();
+            
         if (catError) throw catError;
         finalCategoryId = newCat.id; 
       }
+      
       if (!finalCategoryId || finalCategoryId === '') throw new Error("Please select a valid category or type a new one.");
 
       let finalVariants = [];
-      let finalPrice = Math.max(0, parseFloat(newDish.price) || 0); // 🚨 Base Price hamesha pick hoga
+      let finalPrice = Math.max(0, parseFloat(newDish.price) || 0);
 
       if (newDish.has_variants && newDish.variants && newDish.variants.length > 0) {
         finalVariants = newDish.variants.map(v => ({ name: v.name, price: parseFloat(v.price) }));
@@ -247,6 +293,10 @@ const MenuManagement = () => {
         <div className="flex flex-wrap gap-2">
           {categories.map((cat) => (
             <div key={cat.id} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm hover:border-red-300 transition-all group">
+              {/* 🚨 ADDED: Show a mini thumbnail if it's the premium UI */}
+              {menuStyle === 'category_hero' && cat.image_url && (
+                 <img src={cat.image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+              )}
               <span className="text-[10px] md:text-xs font-bold text-slate-700">{cat.name}</span>
               <button onClick={() => deleteCategory(cat.id, cat.name)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
             </div>
@@ -272,9 +322,14 @@ const MenuManagement = () => {
               ) : dishes.map((dish) => (
                 <tr key={dish.id} className={`hover:bg-slate-50/40 transition-all group ${!dish.is_available ? 'opacity-50' : ''}`}>
                   <td className="p-6 md:p-10 flex items-center gap-4 md:gap-6 max-w-[250px] md:max-w-none">
-                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl md:rounded-[2rem] bg-slate-100 overflow-hidden border-2 md:border-4 border-white shadow-lg flex-shrink-0 relative">
-                      <img src={dish.image_url || `https://source.unsplash.com/200x200/?food,dish`} className="w-full h-full object-cover" alt={dish.name} />
-                    </div>
+                    
+                    {/* 🚨 DYNAMIC UI: Only show dish photo if Classic UI is selected */}
+                    {menuStyle === 'classic' && (
+                      <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl md:rounded-[2rem] bg-slate-100 overflow-hidden border-2 md:border-4 border-white shadow-lg flex-shrink-0 relative">
+                        <img src={dish.image_url || `https://source.unsplash.com/200x200/?food,dish`} className="w-full h-full object-cover" alt={dish.name} />
+                      </div>
+                    )}
+
                     <div className="overflow-hidden">
                       <p className="font-black text-slate-800 text-sm md:text-lg mb-0.5 md:mb-1 italic tracking-tight truncate">{dish.name}</p>
                       
@@ -337,18 +392,23 @@ const MenuManagement = () => {
             
             <form onSubmit={handleSubmit} className="space-y-6">
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="col-span-1 space-y-3">
-                  <div className="relative group">
-                    <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                    <div className={`aspect-square border-4 border-dashed rounded-2xl md:rounded-[2rem] flex flex-col items-center justify-center transition-all ${imageFile ? 'border-orange-500 bg-orange-50' : 'border-slate-100 bg-slate-50 group-hover:border-slate-300'}`}>
-                      {imageFile ? <CheckCircle2 className="text-orange-500 mb-2" size={32} /> : <UploadCloud className="text-slate-200 mb-2" size={32} />}
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center px-4">{imageFile ? 'Image Selected' : 'Drop HD Image'}</p>
+              {/* 🚨 DYNAMIC GRID: Full width if Hero UI (no dish image), else 3 columns */}
+              <div className={`grid grid-cols-1 ${menuStyle === 'classic' ? 'md:grid-cols-3' : 'md:grid-cols-1'} gap-6`}>
+                
+                {/* 🚨 DISH IMAGE UPLOAD: Only visible in Classic UI */}
+                {menuStyle === 'classic' && (
+                  <div className="col-span-1 space-y-3">
+                    <div className="relative group">
+                      <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                      <div className={`aspect-square border-4 border-dashed rounded-2xl md:rounded-[2rem] flex flex-col items-center justify-center transition-all ${imageFile ? 'border-orange-500 bg-orange-50' : 'border-slate-100 bg-slate-50 group-hover:border-slate-300'}`}>
+                        {imageFile ? <CheckCircle2 className="text-orange-500 mb-2" size={32} /> : <UploadCloud className="text-slate-200 mb-2" size={32} />}
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center px-4">{imageFile ? 'Image Selected' : 'Drop HD Image'}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
-                <div className="col-span-1 md:col-span-2 space-y-4">
+                <div className={`col-span-1 ${menuStyle === 'classic' ? 'md:col-span-2' : ''} space-y-4`}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Dish Name *</label>
@@ -363,9 +423,20 @@ const MenuManagement = () => {
                           <option value="ADD_NEW" className="font-bold text-orange-500 bg-orange-50">+ Add Category</option>
                         </select>
                       ) : (
-                        <div className="flex gap-2 mt-1">
-                          <input type="text" placeholder="New category..." className="w-full bg-slate-50 border-none rounded-xl p-4 font-black italic text-slate-800 outline-none text-sm" value={newCategoryText} onChange={(e) => setNewCategoryText(e.target.value)} required={isAddingCategory} autoFocus />
-                          <button type="button" onClick={() => {setIsAddingCategory(false); setNewCategoryText("");}} className="bg-slate-200 text-slate-600 px-4 rounded-xl font-black text-xs hover:bg-slate-300">Cancel</button>
+                        <div className="flex flex-col gap-2 mt-1">
+                          <div className="flex gap-2">
+                            <input type="text" placeholder="New category name..." className="w-full bg-slate-50 border-none rounded-xl p-4 font-black italic text-slate-800 outline-none text-sm" value={newCategoryText} onChange={(e) => setNewCategoryText(e.target.value)} required={isAddingCategory} autoFocus />
+                            <button type="button" onClick={() => {setIsAddingCategory(false); setNewCategoryText(""); setCategoryImageFile(null);}} className="bg-slate-200 text-slate-600 px-4 rounded-xl font-black text-xs hover:bg-slate-300">Cancel</button>
+                          </div>
+                          
+                          {/* 🚨 CATEGORY HERO IMAGE UPLOAD: Only visible in Premium UI */}
+                          {menuStyle === 'category_hero' && (
+                             <label className={`w-full border-2 border-dashed rounded-xl p-3 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all flex justify-center items-center gap-2 ${categoryImageFile ? 'bg-green-50 border-green-300 text-green-600' : 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100'}`}>
+                               <ImageIcon size={16} />
+                               {categoryImageFile ? 'Hero Image Selected' : 'Upload Category Hero Image *'}
+                               <input type="file" accept="image/*" className="hidden" onChange={(e) => setCategoryImageFile(e.target.files[0])} />
+                             </label>
+                          )}
                         </div>
                       )}
                     </div>
@@ -415,10 +486,8 @@ const MenuManagement = () => {
                     </div>
                   </div>
 
-                  {/* 🚨 UPDATED VARIANTS & PRICE SECTION */}
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                     
-                    {/* ALWAYS SHOW BASE PRICE */}
                     <div className="mb-4">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Standard Base Price (₹) *</label>
                       <input type="number" min="0" required className="w-full bg-slate-50 rounded-xl p-3 font-black text-slate-800 outline-none focus:ring-2 focus:ring-orange-500" value={newDish.price} onChange={e => { const val = e.target.value; if (val >= 0 || val === "") setNewDish({...newDish, price: val}); }} />
