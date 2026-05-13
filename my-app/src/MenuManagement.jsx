@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from './AdminLayout';
 import { supabase } from './supabase';
 import { 
-  Plus, Edit2, Trash2, X, Loader2, UploadCloud, Link, CheckCircle2, Star, Image as ImageIcon
+  Plus, Edit2, Trash2, X, Loader2, UploadCloud, Link, CheckCircle2, Star, Image as ImageIcon, Gift
 } from 'lucide-react';
 
 const MenuManagement = () => {
@@ -25,7 +25,7 @@ const MenuManagement = () => {
 
   const [newDish, setNewDish] = useState({ 
     name: '', price: '', category_id: '', description: '', paired_items: [], is_available: true,
-    rating: '', order_count: '', tags: [], has_variants: false, variants: []
+    rating: '', order_count: '', tags: [], has_variants: false, variants: [], variant_type: 'multiple'
   });
 
   const availableTags = ['Veg 🟢', 'Non-Veg 🔴', 'Bestseller ⭐', 'Spicy 🌶️', "Chef's Special 👨‍🍳", 'Sweet 🍯'];
@@ -97,7 +97,7 @@ const MenuManagement = () => {
   const resetForm = () => {
     setNewDish({ 
       name: '', price: '', category_id: '', description: '', paired_items: [], is_available: true,
-      rating: '', order_count: '', tags: [], has_variants: false, variants: []
+      rating: '', order_count: '', tags: [], has_variants: false, variants: [], variant_type: 'multiple'
     });
     setEditingId(null);
     setImageFile(null);
@@ -111,27 +111,45 @@ const MenuManagement = () => {
   const startEdit = (dish) => {
     setEditingId(dish.id);
     const hasVars = dish.variants && dish.variants.length > 0;
+    const normalizedPairs = (dish.paired_items || []).map(p => typeof p === 'string' ? { id: p, isFree: false } : p);
     
     setNewDish({
       name: dish.name,
       price: dish.price,
       category_id: dish.subcategory_id,
       description: dish.description,
-      paired_items: dish.paired_items || [],
+      paired_items: normalizedPairs,
       is_available: dish.is_available ?? true,
       rating: dish.rating === null ? '' : dish.rating, 
       order_count: dish.order_count === null ? '' : dish.order_count,
       tags: dish.tags || [],
       has_variants: hasVars,
-      variants: hasVars ? dish.variants : []
+      variants: hasVars ? dish.variants : [],
+      variant_type: dish.variant_type || 'multiple'
     });
     setIsModalOpen(true);
   };
 
   const togglePairing = (id) => {
+    setNewDish(prev => {
+      const exists = prev.paired_items.find(p => (typeof p === 'string' ? p : p.id) === id);
+      if (exists) {
+        return { ...prev, paired_items: prev.paired_items.filter(p => (typeof p === 'string' ? p : p.id) !== id) };
+      } else {
+        return { ...prev, paired_items: [...prev.paired_items, { id, isFree: false }] };
+      }
+    });
+  };
+
+  const toggleFreeStatus = (e, id) => {
+    e.stopPropagation();
     setNewDish(prev => ({
       ...prev,
-      paired_items: prev.paired_items.includes(id) ? prev.paired_items.filter(item => item !== id) : [...prev.paired_items, id]
+      paired_items: prev.paired_items.map(p => {
+        const pId = typeof p === 'string' ? p : p.id;
+        if (pId === id) return { id, isFree: !(typeof p === 'string' ? false : p.isFree) };
+        return p;
+      })
     }));
   };
 
@@ -218,7 +236,6 @@ const MenuManagement = () => {
         if (catError) throw catError;
         finalCategoryId = newCat.id; 
       } else if (menuStyle === 'category_hero' && categoryImageFile && finalCategoryId) {
-        // 🚨 FIX 1: Update existing category image if uploaded
         const catImageUrl = await uploadImage(categoryImageFile);
         await supabase.from('subcategories').update({ image_url: catImageUrl }).eq('id', finalCategoryId);
       }
@@ -249,7 +266,8 @@ const MenuManagement = () => {
         rating: safeRating,
         order_count: safeOrderCount,
         tags: newDish.tags,
-        variants: finalVariants
+        variants: finalVariants,
+        variant_type: newDish.has_variants ? newDish.variant_type : 'multiple'
       };
 
       if (editingId) {
@@ -353,7 +371,7 @@ const MenuManagement = () => {
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Base</span>
                         <span className="font-black text-slate-900 italic text-lg md:text-xl">₹{dish.price}</span>
                         <span className="text-[9px] font-bold text-orange-500 uppercase bg-orange-50 px-2 py-1 rounded w-fit border border-orange-100">
-                          {dish.variants.length} Add-ons
+                          {dish.variants.length} Add-ons ({dish.variant_type === 'single' ? 'Pick 1' : 'Multi'})
                         </span>
                       </div>
                     ) : (
@@ -419,7 +437,6 @@ const MenuManagement = () => {
                             <option value="ADD_NEW" className="font-bold text-orange-500 bg-orange-50">+ Add Category</option>
                           </select>
                           
-                          {/* 🚨 FIX 1: Allow Updating Hero Image for EXISTING Categories */}
                           {menuStyle === 'category_hero' && newDish.category_id && (
                              <label className={`w-full border-2 border-dashed rounded-xl p-3 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all flex justify-center items-center gap-2 ${categoryImageFile ? 'bg-green-50 border-green-300 text-green-600' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}>
                                <ImageIcon size={16} />
@@ -505,6 +522,18 @@ const MenuManagement = () => {
 
                     {newDish.has_variants && (
                       <div className="animate-in fade-in zoom-in-95 mt-3">
+                        
+                        <div className="flex flex-wrap gap-4 mb-4 bg-orange-50 p-3 rounded-xl border border-orange-100">
+                           <label className="flex items-center gap-2 text-[10px] font-black text-slate-700 uppercase tracking-widest cursor-pointer">
+                              <input type="radio" name="vType" checked={newDish.variant_type === 'multiple'} onChange={() => setNewDish({...newDish, variant_type: 'multiple'})} className="accent-orange-500 w-3 h-3" />
+                              Multi-Select (Add-ons)
+                           </label>
+                           <label className="flex items-center gap-2 text-[10px] font-black text-slate-700 uppercase tracking-widest cursor-pointer">
+                              <input type="radio" name="vType" checked={newDish.variant_type === 'single'} onChange={() => setNewDish({...newDish, variant_type: 'single'})} className="accent-orange-500 w-3 h-3" />
+                              Single-Select (Sizes)
+                           </label>
+                        </div>
+
                         <div className="flex gap-2 mb-3">
                           <input
                             type="text"
@@ -561,12 +590,28 @@ const MenuManagement = () => {
                 <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 mb-4 italic">
                   <Link size={14} className="text-orange-500" /> Curated Pairings
                 </label>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                  {dishes.filter(d => d.id !== editingId).map(dish => (
-                    <button type="button" key={dish.id} onClick={() => togglePairing(dish.id)} className={`p-3 rounded-xl text-[9px] font-black uppercase tracking-tight text-left transition-all border-2 truncate ${newDish.paired_items.includes(dish.id) ? 'border-orange-500 bg-white text-orange-600 shadow-sm' : 'border-slate-200 bg-white text-slate-400 hover:border-orange-200'}`}>
-                      <span className="flex items-center gap-2 truncate">{newDish.paired_items.includes(dish.id) ? '✓' : '+'} {dish.name}</span>
-                    </button>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-56 overflow-y-auto pr-2 custom-scrollbar">
+                  {dishes.filter(d => d.id !== editingId).map(dish => {
+                    const pairObj = newDish.paired_items.find(p => (typeof p === 'string' ? p : p.id) === dish.id);
+                    const isSelected = !!pairObj;
+                    const isFree = isSelected && (typeof pairObj !== 'string') && pairObj.isFree;
+
+                    return (
+                      <div key={dish.id} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${isSelected ? 'border-orange-500 bg-white shadow-sm' : 'border-slate-200 bg-white hover:border-orange-200'}`}>
+                        <button type="button" onClick={() => togglePairing(dish.id)} className="flex items-center gap-2 flex-1 text-left">
+                          <span className={`text-[10px] font-black uppercase tracking-tight truncate ${isSelected ? 'text-orange-600' : 'text-slate-500'}`}>
+                            {isSelected ? '✓' : '+'} {dish.name}
+                          </span>
+                        </button>
+                        
+                        {isSelected && (
+                          <button type="button" onClick={(e) => toggleFreeStatus(e, dish.id)} className={`flex items-center gap-1 px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest ml-2 transition-all ${isFree ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                             <Gift size={10} /> {isFree ? 'Free' : 'Paid'}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

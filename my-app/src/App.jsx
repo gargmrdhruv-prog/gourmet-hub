@@ -201,7 +201,7 @@ function App() {
     }
   }, [selectedCategory, allDishes]);
 
-const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qtyToAdd = 1) => {
+  const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qtyToAdd = 1) => {
     if (qtyToAdd <= 0) return;
     
     if (qtyToAdd > 20) {
@@ -239,7 +239,8 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
           return workingCart;
         }
 
-        return [...workingCart, { ...dish, cartItemId, price: actualPrice, selectedVariants: variantsArray, cookingRequest: request, qty: qtyToAdd }];
+        const finalName = dish.isFreeItem ? `${dish.name} (Complimentary)` : dish.name;
+        return [...workingCart, { ...dish, name: finalName, cartItemId, price: actualPrice, selectedVariants: variantsArray, cookingRequest: request, qty: qtyToAdd }];
       }
     });
     
@@ -272,7 +273,13 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
 
   const getSmartRecs = (currentDish) => {
     if (!currentDish.paired_items || currentDish.paired_items.length === 0) return [];
-    return allDishes.filter(d => currentDish.paired_items.includes(d.id) && d.id !== currentDish.id);
+    return currentDish.paired_items.map(p => {
+       const pId = typeof p === 'string' ? p : p.id;
+       const isFree = typeof p === 'string' ? false : p.isFree;
+       const dishInfo = allDishes.find(d => d.id === pId);
+       if (!dishInfo) return null;
+       return { ...dishInfo, isFreeItem: isFree };
+    }).filter(Boolean);
   }
 
   const openDishSheet = (dish) => {
@@ -290,7 +297,11 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
     const variantsTotal = selectedVariants.reduce((sum, v) => sum + Number(v.price), 0);
     const mainPrice = (Number(selectedDish.price) + variantsTotal) * mainDishQty;
     
-    const recPrice = Object.values(sheetRecs).reduce((sum, item) => sum + (item.variant ? Number(item.dish.price) + Number(item.variant.price) : Number(item.dish.price)) * item.qty, 0);
+    const recPrice = Object.values(sheetRecs).reduce((sum, item) => {
+      const itemBasePrice = item.dish.isFreeItem ? 0 : Number(item.dish.price);
+      return sum + (item.variant ? itemBasePrice + Number(item.variant.price) : itemBasePrice) * item.qty;
+    }, 0);
+    
     const recItems = Object.values(sheetRecs).reduce((sum, item) => sum + item.qty, 0);
     
     return {
@@ -531,8 +542,9 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                         const cartItemsForDish = cart.filter(i => i.id === dish.id);
                         const totalQtyInCart = cartItemsForDish.reduce((sum, item) => sum + item.qty, 0);
                         const isNonVeg = dish.tags?.some(t => t.toLowerCase().includes('non-veg'));
-                        const extraTags = dish.tags?.filter(t => t !== 'Veg 🟢' && t !== 'Non-Veg 🔴' && t !== 'Bestseller ⭐') || [];
-                        const isBestseller = dish.tags?.some(t => t.toLowerCase().includes('bestseller')); // 🚨 FIX: Extract Bestseller logic
+                        const isVeg = dish.tags?.some(t => t.toLowerCase() === 'veg 🟢' || (t.toLowerCase().includes('veg') && !t.toLowerCase().includes('non-veg')));
+                        const extraTags = dish.tags?.filter(t => !t.toLowerCase().includes('veg 🟢') && !t.toLowerCase().includes('non-veg 🔴') && !t.toLowerCase().includes('bestseller ⭐')) || [];
+                        const isBestseller = dish.tags?.some(t => t.toLowerCase().includes('bestseller'));
 
                         return (
                           <div key={dish.id} className="bg-white/95 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-slate-100 hover:shadow-md transition-all">
@@ -542,9 +554,9 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                                   <div className="flex-shrink-0">
                                     {isNonVeg ? (
                                       <div className="w-3.5 h-3.5 border-2 border-red-500 flex items-center justify-center rounded-sm"><div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div></div>
-                                    ) : (
+                                    ) : isVeg ? (
                                       <div className="w-3.5 h-3.5 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div></div>
-                                    )}
+                                    ) : null}
                                   </div>
                                   <h3 className={`font-black text-slate-800 leading-tight cursor-pointer ${isRoyalFont ? 'uppercase tracking-widest text-sm md:text-base' : 'text-lg md:text-xl'}`} onClick={() => openDishSheet(dish)}>
                                     {dish.name}
@@ -552,7 +564,6 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                                 </div>
                                 {dish.description && <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">{dish.description}</p>}
                                 
-                                {/* 🚨 FIX: Now the entire block renders if there are extraTags OR if it's a Bestseller */}
                                 {(extraTags.length > 0 || isBestseller) && (
                                   <div className="flex flex-wrap gap-1.5 mt-2">
                                     {extraTags.map((tag, idx) => (
@@ -596,7 +607,9 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                         const cartItemsForDish = cart.filter(i => i.id === dish.id);
                         const totalQtyInCart = cartItemsForDish.reduce((sum, item) => sum + item.qty, 0);
                         const isNonVeg = dish.tags?.some(t => t.toLowerCase().includes('non-veg'));
-                        const extraTags = dish.tags?.filter(t => t !== 'Veg 🟢' && t !== 'Non-Veg 🔴' && t !== 'Bestseller ⭐') || [];
+                        const isVeg = dish.tags?.some(t => t.toLowerCase() === 'veg 🟢' || (t.toLowerCase().includes('veg') && !t.toLowerCase().includes('non-veg')));
+                        const extraTags = dish.tags?.filter(t => !t.toLowerCase().includes('veg 🟢') && !t.toLowerCase().includes('non-veg 🔴') && !t.toLowerCase().includes('bestseller ⭐')) || [];
+                        const isBestseller = dish.tags?.some(t => t.toLowerCase().includes('bestseller'));
 
                         return (
                           <div key={dish.id} className="bg-white/95 backdrop-blur-md rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl transition-all flex flex-col">
@@ -607,7 +620,7 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                                   <span className="text-sm font-black text-white uppercase tracking-widest bg-black/50 px-4 py-2 rounded-lg">Sold Out</span>
                                 </div>
                               )}
-                              {dish.tags?.some(t => t.toLowerCase().includes('bestseller')) && (
+                              {isBestseller && (
                                 <div style={{ backgroundColor: storeSettings.theme_color }} className="absolute top-3 left-3 md:top-4 md:left-4 text-white text-[9px] md:text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">
                                   ⭐ Bestseller
                                 </div>
@@ -619,9 +632,9 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                                 <div className="mt-1 flex-shrink-0">
                                   {isNonVeg ? (
                                     <div className="w-3.5 h-3.5 border-2 border-red-500 flex items-center justify-center rounded-sm"><div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div></div>
-                                  ) : (
+                                  ) : isVeg ? (
                                     <div className="w-3.5 h-3.5 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div></div>
-                                  )}
+                                  ) : null}
                                 </div>
                                 <h3 className={`font-black text-slate-800 leading-tight cursor-pointer ${isRoyalFont ? 'uppercase tracking-widest text-sm md:text-base' : 'text-base md:text-lg'}`} onClick={() => openDishSheet(dish)}>
                                   {dish.name}
@@ -723,7 +736,13 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                        <div key={item.cartItemId} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3">
                          <div className="flex justify-between items-start">
                            <div className="flex items-start gap-3">
-                             <div className="mt-0.5 w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm shrink-0"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
+                             <div className="mt-0.5 flex-shrink-0">
+                               {item.tags?.some(t => t.toLowerCase().includes('non-veg')) ? (
+                                 <div className="w-4 h-4 border-2 border-red-500 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-red-500 rounded-full"></div></div>
+                               ) : item.tags?.some(t => t.toLowerCase() === 'veg 🟢' || (t.toLowerCase().includes('veg') && !t.toLowerCase().includes('non-veg'))) ? (
+                                 <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
+                               ) : null}
+                             </div>
                              <div>
                                <span className={`font-bold text-slate-800 block ${isRoyalFont ? 'uppercase tracking-wider text-xs' : ''}`}>{item.name}</span>
                                {item.selectedVariants && item.selectedVariants.length > 0 && (
@@ -902,7 +921,13 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                     
                     <div className={`p-5 md:p-6 ${storeSettings.menu_style === 'category_hero' ? 'pt-8 md:pt-10' : ''}`}>
                       <div className="flex items-center gap-2 mb-2">
-                         <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
+                         <div className="flex-shrink-0">
+                           {selectedDish.tags?.some(t => t.toLowerCase().includes('non-veg')) ? (
+                             <div className="w-4 h-4 border-2 border-red-500 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-red-500 rounded-full"></div></div>
+                           ) : selectedDish.tags?.some(t => t.toLowerCase() === 'veg 🟢' || (t.toLowerCase().includes('veg') && !t.toLowerCase().includes('non-veg'))) ? (
+                             <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
+                           ) : null}
+                         </div>
                          <h2 className={`font-black text-slate-900 ${isRoyalFont ? 'uppercase tracking-widest text-lg md:text-xl' : 'text-xl md:text-2xl'}`}>
                            {selectedDish.name}
                          </h2>
@@ -926,39 +951,46 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
 
                       {selectedDish.variants && selectedDish.variants.length > 0 && (
                         <div className="mb-6 md:mb-8">
-                          <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Customize <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">Optional Add-ons</span></h3>
+                          <h3 className="font-bold text-slate-800 mb-3 text-xs md:text-sm">Customize <span className="text-[9px] md:text-[10px] text-slate-400 font-normal uppercase tracking-widest ml-2">{selectedDish.variant_type === 'single' ? '(Pick 1)' : '(Optional Add-ons)'}</span></h3>
                           <div className="space-y-2 md:space-y-3">
                             
                             <label style={{ borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` }} className="flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 transition-all">
                               <span className="font-bold text-slate-800 text-sm">Base Item</span>
                               <div className="flex items-center gap-3">
                                 <span className="font-black text-slate-900 text-sm">₹{selectedDish.price}</span>
-                                <div style={{ borderColor: storeSettings.theme_color }} className="w-4 h-4 md:w-5 md:h-5 rounded-md border-[1.5px] md:border-2 flex items-center justify-center shrink-0">
-                                  <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-sm shrink-0"></div>
+                                <div style={{ borderColor: storeSettings.theme_color }} className={`w-4 h-4 md:w-5 md:h-5 border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${selectedDish.variant_type === 'single' ? 'rounded-full' : 'rounded-md'}`}>
+                                  <div style={{ backgroundColor: storeSettings.theme_color }} className={`w-2 h-2 md:w-2.5 md:h-2.5 shrink-0 ${selectedDish.variant_type === 'single' ? 'rounded-full' : 'rounded-sm'}`}></div>
                                 </div>
                               </div>
                             </label>
 
                             {selectedDish.variants.map((variant, idx) => {
                               const isSelected = selectedVariants.some(v => v.name === variant.name);
+                              const isSingle = selectedDish.variant_type === 'single';
+
                               return (
                                 <label key={idx} style={isSelected ? { borderColor: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` } : {}} className={`flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 cursor-pointer transition-all ${isSelected ? '' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
                                   <span className="font-bold text-slate-800 text-sm">{variant.name}</span>
                                   <div className="flex items-center gap-3">
                                     <span className="font-black text-slate-900 text-sm">+ ₹{variant.price}</span>
-                                    <div style={isSelected ? { borderColor: storeSettings.theme_color } : {}} className={`w-4 h-4 md:w-5 md:h-5 rounded-md border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${isSelected ? '' : 'border-slate-300'}`}>
-                                      {isSelected && <div style={{ backgroundColor: storeSettings.theme_color }} className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-sm shrink-0"></div>}
+                                    <div style={isSelected ? { borderColor: storeSettings.theme_color } : {}} className={`w-4 h-4 md:w-5 md:h-5 border-[1.5px] md:border-2 flex items-center justify-center shrink-0 ${isSingle ? 'rounded-full' : 'rounded-md'} ${isSelected ? '' : 'border-slate-300'}`}>
+                                      {isSelected && <div style={{ backgroundColor: storeSettings.theme_color }} className={`w-2 h-2 md:w-2.5 md:h-2.5 shrink-0 ${isSingle ? 'rounded-full' : 'rounded-sm'}`}></div>}
                                     </div>
                                   </div>
                                   <input 
-                                    type="checkbox" 
+                                    type={isSingle ? "radio" : "checkbox"} 
+                                    name="variant_selection"
                                     className="hidden" 
                                     checked={isSelected} 
                                     onChange={() => {
-                                      if (isSelected) {
-                                        setSelectedVariants(selectedVariants.filter(v => v.name !== variant.name));
+                                      if (isSingle) {
+                                        setSelectedVariants([variant]);
                                       } else {
-                                        setSelectedVariants([...selectedVariants, variant]);
+                                        if (isSelected) {
+                                          setSelectedVariants(selectedVariants.filter(v => v.name !== variant.name));
+                                        } else {
+                                          setSelectedVariants([...selectedVariants, variant]);
+                                        }
                                       }
                                     }} 
                                   />
@@ -998,13 +1030,20 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                                   
                                   <div className="flex justify-between items-center mt-auto bg-slate-50 p-2 rounded-xl border border-slate-100">
                                     <div className="flex flex-col">
-                                      <span className="font-black text-slate-900 text-xs">₹{rec.price}</span>
-                                      {hasVariants && <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Customizable</span>}
+                                      {rec.isFreeItem ? (
+                                        <span className="font-black text-green-600 text-[10px] md:text-xs flex flex-col leading-tight">
+                                          <span className="line-through text-slate-400 font-bold text-[8px] md:text-[9px]">₹{rec.price}</span>FREE
+                                        </span>
+                                      ) : (
+                                        <span className="font-black text-slate-900 text-xs">₹{rec.price}</span>
+                                      )}
+                                      {hasVariants && !rec.isFreeItem && <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Customizable</span>}
                                     </div>
                                     <button 
                                       onClick={() => {
                                         addToCart(selectedDish, selectedVariants, cookingRequest, false, mainDishQty);
-                                        openDishSheet(rec);
+                                        const actualRecToAdd = { ...rec, price: rec.isFreeItem ? 0 : rec.price };
+                                        addToCart(actualRecToAdd, [], "", false, 1);
                                       }} 
                                       style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` }} 
                                       className="px-3 py-1.5 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all"
