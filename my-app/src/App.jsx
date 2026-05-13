@@ -31,13 +31,18 @@ function App() {
 
   const [editingCartItem, setEditingCartItem] = useState(null);
   const [storeSettings, setStoreSettings] = useState(null);
-
-  const [vh, setVh] = useState(window.innerHeight);
   
   const location = useLocation();
   const currentPath = location.pathname;
 
-useEffect(() => {
+  // 🚨 FIX 2: Auto-redirect to menu if cart becomes empty on checkout page
+  useEffect(() => {
+    if (view === 'checkout' && cart.length === 0) {
+      setView('menu');
+    }
+  }, [cart, view]);
+
+  useEffect(() => {
     const init = async () => {
       if (currentPath.startsWith('/admin') || currentPath.startsWith('/super-admin')) {
          const { data: { session } } = await supabase.auth.getSession();
@@ -392,7 +397,7 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
 
   if (loading || !storeSettings) {
     return (
-      <div className="h-screen bg-slate-900 flex flex-col items-center justify-center text-white gap-4">
+      <div className="min-h-[100dvh] bg-slate-900 flex flex-col items-center justify-center text-white gap-4">
          <div className="animate-spin rounded-full h-10 w-10 border-b-4 border-orange-500"></div>
          <p className="text-sm font-bold text-slate-400 uppercase">Loading...</p>
       </div>
@@ -415,10 +420,10 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
   const isRoyalFont = storeSettings.theme_font && storeSettings.theme_font.toLowerCase().includes('cinzel');
 
   return (
-    <div style={{ fontFamily: storeSettings.theme_font }}>
+    <div style={{ fontFamily: storeSettings.theme_font, minHeight: '100dvh', backgroundColor: mainBgColor }} className="flex flex-col">
       
       {view === 'welcome' && (
-        <div className="w-full min-h-screen bg-slate-900 flex flex-col justify-end md:justify-center pb-12 md:pb-20 px-6 md:px-12 relative overflow-hidden">
+        <div className="w-full min-h-[100dvh] bg-slate-900 flex flex-col justify-end md:justify-center pb-12 md:pb-20 px-6 md:px-12 relative overflow-hidden">
           {storeSettings.welcome_bg_url && (
             <img src={storeSettings.welcome_bg_url} className="absolute inset-0 w-full h-full object-cover opacity-40" alt="bg" />
           )}
@@ -444,10 +449,10 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
 
       {view !== 'welcome' && (
         <div 
-          className="w-full relative transition-colors duration-300"
-          style={{ backgroundColor: mainBgColor, minHeight: `${vh}px` }}
+          className="w-full relative transition-colors duration-300 flex-1 flex flex-col"
+          style={{ backgroundColor: mainBgColor, minHeight: '100dvh' }}
         >
-          <div className="relative z-10 flex flex-col" style={{ minHeight: `${vh}px` }}>
+          <div className="relative z-10 flex flex-col flex-1" style={{ minHeight: '100dvh' }}>
 
             {view === 'menu' && (
               <>
@@ -473,7 +478,6 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                   </div>
                 </header>
 
-                {/* 🚨 FIX 2: Hiding category nav completely for Premium Theme */}
                 {storeSettings.menu_style !== 'category_hero' && (
                   <div className="sticky top-[81px] md:top-[97px] z-30 border-b border-slate-100/10 shadow-sm backdrop-blur-md transition-colors duration-300 bg-transparent">
                     <nav className="flex gap-3 md:gap-4 overflow-x-auto p-3 md:px-8 md:py-4 max-w-7xl mx-auto no-scrollbar">
@@ -492,7 +496,6 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                   
                   {storeSettings.menu_style === 'category_hero' && selectedCategory === null ? (
                     <div className="animate-in fade-in slide-in-from-bottom-4">
-                      {/* 🚨 PREMIUM HEADER FOR CATEGORY PAGE */}
                       <div className="text-center mb-8 md:mb-10 mt-2">
                         <h2 className={`text-2xl md:text-4xl font-black italic mb-2 ${isDarkTheme ? 'text-white' : 'text-slate-800'} ${isRoyalFont ? 'uppercase tracking-[0.1em]' : ''}`}>Our Signature Collections</h2>
                         <p className={`text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] ${isDarkTheme ? 'text-slate-400' : 'text-slate-500'}`}>Handpicked culinary masterpieces</p>
@@ -519,7 +522,6 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                   ) : storeSettings.menu_style === 'category_hero' ? (
                     
                     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4">
-                      {/* 🚨 PREMIUM BACK BUTTON TO CATEGORY LIST */}
                       <button onClick={() => setSelectedCategory(null)} className={`flex items-center gap-2 text-[10px] md:text-xs font-black uppercase tracking-widest mb-4 transition-all w-fit px-5 py-2.5 rounded-full border border-slate-200 shadow-sm ${isDarkTheme ? 'bg-slate-800 text-white border-slate-700' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
                          <ArrowLeft size={14} /> Back to Collections
                       </button>
@@ -681,16 +683,25 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                   )}  
                 </div>
 
+                {/* 🚨 FIX 3: Floating Cart Bottom Bar with Close Button */}
                 {cart.length > 0 && (
-                  <div className="fixed bottom-0 left-0 right-0 md:bottom-8 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-xl bg-white/90 backdrop-blur-md md:rounded-[2rem] p-4 border-t border-slate-100 md:border md:shadow-2xl z-40 flex justify-between items-center shadow-[0_-10px_20px_rgba(0,0,0,0.05)] animate-in slide-in-from-bottom-10">
+                  <div className="fixed bottom-4 left-4 right-4 md:bottom-8 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-xl bg-white/95 backdrop-blur-md rounded-2xl md:rounded-[2rem] p-3 md:p-4 border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.1)] md:shadow-2xl z-40 flex justify-between items-center animate-in slide-in-from-bottom-10">
+                     
+                     <button 
+                       onClick={() => setCart([])} 
+                       className="absolute -top-3 -right-3 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-full p-1.5 shadow border border-white transition-colors"
+                     >
+                       <X size={16} strokeWidth={3} />
+                     </button>
+
                      <div className="pl-2">
-                       <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">{cart.reduce((a,b)=>a+b.qty,0)} Items Added</p>
-                       <p className="text-xl font-black text-slate-900 tracking-tight">₹{grandTotal}</p> 
+                       <p className="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">{cart.reduce((a,b)=>a+b.qty,0)} Items Added</p>
+                       <p className="text-lg md:text-xl font-black text-slate-900 tracking-tight">₹{grandTotal}</p> 
                      </div>
                      <button 
                        onClick={() => setView('checkout')} 
                        style={{ backgroundColor: storeSettings.theme_color }}
-                       className={`text-white px-8 py-3.5 ${storeSettings.theme_button} font-black text-sm uppercase tracking-widest flex items-center gap-2 shadow-lg`}
+                       className={`text-white px-6 md:px-8 py-3 md:py-3.5 ${storeSettings.theme_button} font-black text-xs md:text-sm uppercase tracking-widest flex items-center gap-2 shadow-lg hover:brightness-110 transition-all`}
                      >
                        Next <ChevronRight size={18} />
                      </button>
@@ -881,14 +892,12 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
 
                   <div className="overflow-y-auto custom-scrollbar flex-1 pb-[140px] md:pb-[160px]">
                     
-                    {/* 🚨 FIX 3: Completely Hide the image section if Premium Theme is selected */}
                     {storeSettings.menu_style !== 'category_hero' && (
                       <div className="w-full h-56 md:h-64 bg-slate-100 relative">
                         <img src={selectedDish.image_url || `https://source.unsplash.com/600x400/?food,${selectedDish.name}`} className="w-full h-full object-cover" />
                       </div>
                     )}
                     
-                    {/* Adjusted padding for Premium Theme */}
                     <div className={`p-5 md:p-6 ${storeSettings.menu_style === 'category_hero' ? 'pt-8 md:pt-10' : ''}`}>
                       <div className="flex items-center gap-2 mb-2">
                          <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
