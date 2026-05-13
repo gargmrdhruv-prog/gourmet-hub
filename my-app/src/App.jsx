@@ -201,32 +201,49 @@ function App() {
     }
   }, [selectedCategory, allDishes]);
 
-  const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qtyToAdd = 1) => {
+  // 🚨 SMART CART ARCHITECTURE: Parent-Child Linkage & Strict Boundries
+  const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qtyToAdd = 1, isFree = false, parentId = null) => {
     if (qtyToAdd <= 0) return;
-    
     if (qtyToAdd > 20) {
       alert("⚠️ Security Alert: You cannot add more than 20 quantities of a single item at once.");
       return;
     }
     
     const variantsTotal = variantsArray.reduce((sum, v) => sum + Number(v.price), 0);
-    const actualPrice = Number(dish.price) + variantsTotal;
+    const actualPrice = isFree ? 0 : (Number(dish.price) + variantsTotal);
     
     const variantNames = variantsArray.map(v => v.name).sort().join(' + ');
-    const cartItemId = variantNames ? `${dish.id}-${variantNames}` : `${dish.id}-regular`;
+    let cartItemId = variantNames ? `${dish.id}-${variantNames}` : `${dish.id}-regular`;
+
+    // Isolate Free items from Paid items
+    if (isFree && parentId) {
+        cartItemId = `${dish.id}-free-${parentId}`;
+    }
 
     setCart(prevCart => {
       let workingCart = prevCart;
-      if (editingCartItem && editingCartItem.cartItemId !== cartItemId) {
-         workingCart = prevCart.filter(i => i.cartItemId !== editingCartItem.cartItemId);
+      
+      // If we are updating an existing customized item, clear the old bundle (Parent + Children)
+      if (editingCartItem && !isFree) {
+         workingCart = prevCart.filter(i => i.cartItemId !== editingCartItem.cartItemId && i.parentCartItemId !== editingCartItem.cartItemId);
       }
 
       const existing = workingCart.find(i => i.cartItemId === cartItemId);
       if (existing) {
-        const newQty = editingCartItem ? qtyToAdd : existing.qty + qtyToAdd;
+        const newQty = (editingCartItem && !isFree) ? qtyToAdd : existing.qty + qtyToAdd;
+        
         if (newQty > 20) {
           alert("⚠️ Maximum limit of 20 reached for this item.");
           return workingCart; 
+        }
+
+        // 🚨 FLAW 2 & 4 FIX: Free item checkout quantity cap
+        if (isFree && parentId) {
+            const parentItem = workingCart.find(i => i.cartItemId === parentId);
+            if (parentItem && newQty > parentItem.qty) {
+                alert(`⚠️ You can only add up to ${parentItem.qty} complimentary ${dish.name}.`);
+                return workingCart;
+            }
         }
 
         return workingCart.map(i => i.cartItemId === cartItemId 
@@ -239,8 +256,17 @@ function App() {
           return workingCart;
         }
 
-        const finalName = dish.isFreeItem ? `${dish.name} (Complimentary)` : dish.name;
-        return [...workingCart, { ...dish, name: finalName, cartItemId, price: actualPrice, selectedVariants: variantsArray, cookingRequest: request, qty: qtyToAdd }];
+        return [...workingCart, { 
+            ...dish, 
+            name: dish.name, 
+            cartItemId, 
+            price: actualPrice, 
+            selectedVariants: variantsArray, 
+            cookingRequest: request, 
+            qty: qtyToAdd,
+            isFreeItem: isFree,
+            parentCartItemId: parentId
+        }];
       }
     });
     
@@ -254,44 +280,55 @@ function App() {
     }
   }
 
+  // 🚨 FLAW 3 FIX: Auto-Remove child if parent drops or decreases
   const removeFromCart = (cartItemId) => {
     setCart(prevCart => {
       const existing = prevCart.find(i => i.cartItemId === cartItemId);
-      if (existing.qty === 1) return prevCart.filter(i => i.cartItemId !== cartItemId);
-      return prevCart.map(i => i.cartItemId === cartItemId ? { ...i, qty: i.qty - 1 } : i);
+      if (!existing) return prevCart;
+
+      if (existing.qty === 1) {
+          // Remove parent AND all its free complimentary children
+          return prevCart.filter(i => i.cartItemId !== cartItemId && i.parentCartItemId !== cartItemId);
+      } else {
+          const newQty = existing.qty - 1;
+          return prevCart.map(i => {
+              if (i.cartItemId === cartItemId) return { ...i, qty: newQty };
+              // 🚨 FLAW 4 FIX: Sync decrease if Free child exceeds new parent limit
+              if (i.parentCartItemId === cartItemId && i.qty > newQty) return { ...i, qty: newQty };
+              return i;
+          });
+      }
     });
   }
 
+  // Populates existing children back to sheetRecs when Editing
   const openEditCartItem = (item) => {
     setEditingCartItem(item);
     setSelectedDish(item); 
     setSelectedVariants(item.selectedVariants || []);
     setCookingRequest(item.cookingRequest || '');
     setMainDishQty(item.qty);
-    setSheetRecs({}); 
+    
+    const existingChildren = cart.filter(c => c.parentCartItemId === item.cartItemId);
+    const newSheetRecs = {};
+    existingChildren.forEach(child => {
+        newSheetRecs[child.id] = { dish: child, qty: child.qty };
+    });
+    setSheetRecs(newSheetRecs); 
   }
 
-  // 🚨 SMART FIX: Now accurately reads the new string-based parsing
   const getSmartRecs = (currentDish) => {
     if (!currentDish.paired_items || currentDish.paired_items.length === 0) return [];
     return currentDish.paired_items.map(p => {
-       // Failsafe condition for old/corrupted data [object Object]
        if (!p || p === '[object Object]') return null;
-       
        let pId, isFree;
-       
-       // Handle the new safe string format
        if (typeof p === 'string') {
           pId = p.split(':')[0];
           isFree = p.includes(':free');
-       } 
-       // Fallback for direct objects if passed
-       else if (typeof p === 'object') {
+       } else if (typeof p === 'object') {
           pId = p.id;
           isFree = p.isFree;
-       } else {
-          return null;
-       }
+       } else return null;
        
        const dishInfo = allDishes.find(d => d.id === pId);
        if (!dishInfo) return null;
@@ -761,7 +798,10 @@ function App() {
                                ) : null}
                              </div>
                              <div>
-                               <span className={`font-bold text-slate-800 block ${isRoyalFont ? 'uppercase tracking-wider text-xs' : ''}`}>{item.name}</span>
+                               <span className={`font-bold text-slate-800 block ${isRoyalFont ? 'uppercase tracking-wider text-xs' : ''}`}>
+                                 {item.name} 
+                                 {item.isFreeItem && <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded ml-2 uppercase tracking-widest align-middle">Free</span>}
+                               </span>
                                {item.selectedVariants && item.selectedVariants.length > 0 && (
                                  <div className="flex flex-wrap gap-1 mt-1.5">
                                    {item.selectedVariants.map((v, i) => (
@@ -774,21 +814,23 @@ function App() {
                              </div>
                            </div>
                            <div className="text-right">
-                             <span className="font-black text-slate-900 block text-lg">₹{item.price * item.qty}</span>
+                             <span className="font-black text-slate-900 block text-lg">{item.isFreeItem ? '₹0' : `₹${item.price * item.qty}`}</span>
                            </div>
                          </div>
                          
                          <div className="flex justify-between items-end mt-2">
                             <div className="flex-1 pr-4 flex flex-col items-start gap-2">
                               {item.cookingRequest && <p style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` }} className="text-[11px] p-2 rounded-lg italic inline-block font-medium">" {item.cookingRequest} "</p>}
-                              <button onClick={() => openEditCartItem(item)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-700 flex items-center gap-1 mt-1 transition-colors">
-                                <Edit3 size={10} /> Customize
-                              </button>
+                              {!item.isFreeItem && (
+                                <button onClick={() => openEditCartItem(item)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-700 flex items-center gap-1 mt-1 transition-colors">
+                                  <Edit3 size={10} /> Customize
+                                </button>
+                              )}
                             </div>
                             <div className="flex items-center gap-4 bg-slate-100 rounded-xl px-2 py-1 shrink-0">
                               <button onClick={() => removeFromCart(item.cartItemId)} className="font-black text-slate-600 text-lg px-2">-</button>
                               <span className="text-sm font-black text-slate-800">{item.qty}</span>
-                              <button onClick={() => addToCart(item, item.selectedVariants || [], item.cookingRequest, false)} className="font-black text-slate-600 text-lg px-2">+</button>
+                              <button onClick={() => addToCart(item, item.selectedVariants || [], item.cookingRequest, false, 1, item.isFreeItem, item.parentCartItemId)} className="font-black text-slate-600 text-lg px-2">+</button>
                             </div>
                          </div>
                        </div>
@@ -886,7 +928,9 @@ function App() {
                         <div key={idx} className="flex gap-3 items-start border-b border-slate-100 last:border-0 pb-3 last:pb-0">
                           <div className="bg-slate-200 text-slate-800 text-xs font-black px-2.5 py-1 rounded shrink-0">{item.qty}x</div>
                           <div>
-                            <span className="font-bold text-slate-800 block leading-tight">{item.name}</span>
+                            <span className="font-bold text-slate-800 block leading-tight">
+                              {item.name} {item.isFreeItem && <span className="text-[8px] bg-green-100 text-green-700 px-1 py-0.5 rounded ml-1 uppercase tracking-widest">Free</span>}
+                            </span>
                             {item.selectedVariants && item.selectedVariants.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1.5">
                                 {item.selectedVariants.map((v, i) => (
@@ -1038,6 +1082,27 @@ function App() {
                           <div className="flex overflow-x-auto gap-3 md:gap-4 pb-4 no-scrollbar">
                             {getSmartRecs(selectedDish).map(rec => {
                               const hasVariants = rec.variants && rec.variants.length > 0;
+                              const recQty = sheetRecs[rec.id]?.qty || 0;
+                              const isFree = rec.isFreeItem;
+
+                              const handleRecAdd = () => {
+                                if (isFree && recQty >= mainDishQty) {
+                                  alert(`You can only add up to ${mainDishQty} complimentary ${rec.name} with your current selection.`);
+                                  return;
+                                }
+                                setSheetRecs(prev => ({ ...prev, [rec.id]: { dish: rec, qty: recQty + 1 } }));
+                              };
+
+                              const handleRecRemove = () => {
+                                if (recQty <= 1) {
+                                  const newRecs = { ...sheetRecs };
+                                  delete newRecs[rec.id];
+                                  setSheetRecs(newRecs);
+                                } else {
+                                  setSheetRecs(prev => ({ ...prev, [rec.id]: { ...prev[rec.id], qty: recQty - 1 } }));
+                                }
+                              };
+
                               return (
                                 <div key={rec.id} className="min-w-[160px] md:min-w-[180px] bg-white border-2 border-slate-100 rounded-2xl p-2 md:p-3 shadow-sm shrink-0 flex flex-col">
                                   {storeSettings.menu_style !== 'category_hero' && (
@@ -1047,26 +1112,31 @@ function App() {
                                   
                                   <div className="flex justify-between items-center mt-auto bg-slate-50 p-2 rounded-xl border border-slate-100">
                                     <div className="flex flex-col">
-                                      {rec.isFreeItem ? (
+                                      {isFree ? (
                                         <span className="font-black text-green-600 text-[10px] md:text-xs flex flex-col leading-tight">
                                           <span className="line-through text-slate-400 font-bold text-[8px] md:text-[9px]">₹{rec.price}</span>FREE
                                         </span>
                                       ) : (
                                         <span className="font-black text-slate-900 text-xs">₹{rec.price}</span>
                                       )}
-                                      {hasVariants && !rec.isFreeItem && <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Customizable</span>}
+                                      {hasVariants && !isFree && <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Customizable</span>}
                                     </div>
-                                    <button 
-                                      onClick={() => {
-                                        addToCart(selectedDish, selectedVariants, cookingRequest, false, mainDishQty);
-                                        const actualRecToAdd = { ...rec, price: rec.isFreeItem ? 0 : rec.price };
-                                        addToCart(actualRecToAdd, [], "", false, 1);
-                                      }} 
-                                      style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` }} 
-                                      className="px-3 py-1.5 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all"
-                                    >
-                                      Add +
-                                    </button>
+                                    
+                                    {recQty > 0 ? (
+                                      <div className="flex items-center gap-2.5 bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-sm">
+                                        <button onClick={handleRecRemove} className="text-slate-600 font-black px-1.5">-</button>
+                                        <span className="text-[10px] font-black">{recQty}</span>
+                                        <button onClick={handleRecAdd} className="text-slate-600 font-black px-1.5">+</button>
+                                      </div>
+                                    ) : (
+                                      <button 
+                                        onClick={handleRecAdd} 
+                                        style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}10` }} 
+                                        className="px-3 py-1.5 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all"
+                                      >
+                                        Add +
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               );
@@ -1081,7 +1151,22 @@ function App() {
                     <div className="flex items-center justify-between mb-3 px-2">
                       <span className="font-bold text-slate-800 text-xs md:text-sm">Main Item Quantity</span>
                       <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1">
-                        <button onClick={() => setMainDishQty(Math.max(1, mainDishQty - 1))} className="font-black text-slate-600 text-lg px-2">-</button>
+                        <button 
+                          onClick={() => {
+                            const newQty = Math.max(1, mainDishQty - 1);
+                            setMainDishQty(newQty);
+                            setSheetRecs(prev => {
+                              const newRecs = { ...prev };
+                              Object.keys(newRecs).forEach(key => {
+                                if (newRecs[key].dish.isFreeItem && newRecs[key].qty > newQty) {
+                                  newRecs[key].qty = newQty;
+                                }
+                              });
+                              return newRecs;
+                            });
+                          }} 
+                          className="font-black text-slate-600 text-lg px-2"
+                        >-</button>
                         <span className="text-sm font-black text-slate-800">{mainDishQty}</span>
                         <button onClick={() => setMainDishQty(mainDishQty + 1)} className="font-black text-slate-600 text-lg px-2">+</button>
                       </div>
@@ -1089,10 +1174,15 @@ function App() {
 
                     <button 
                       onClick={() => {
+                        const variantNames = selectedVariants.map(v => v.name).sort().join(' + ');
+                        const mainCartItemId = variantNames ? `${selectedDish.id}-${variantNames}` : `${selectedDish.id}-regular`;
+
                         addToCart(selectedDish, selectedVariants, cookingRequest, false, mainDishQty);
+                        
                         Object.values(sheetRecs).forEach(recItem => {
-                          addToCart(recItem.dish, recItem.variant ? [recItem.variant] : [], "", false, recItem.qty);
+                          addToCart(recItem.dish, [], "", false, recItem.qty, recItem.dish.isFreeItem, mainCartItemId);
                         });
+
                         setSelectedDish(null);
                         setSelectedVariants([]);
                         setCookingRequest('');
