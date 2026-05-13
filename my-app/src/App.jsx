@@ -473,39 +473,42 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                   </div>
                 </header>
 
-                <div className="sticky top-[81px] md:top-[97px] z-30 border-b border-slate-100/10 shadow-sm backdrop-blur-md transition-colors duration-300 bg-transparent">
-                  <nav className="flex gap-3 md:gap-4 overflow-x-auto p-3 md:px-8 md:py-4 max-w-7xl mx-auto no-scrollbar">
-                    
-                    {storeSettings.menu_style === 'category_hero' && (
-                       <button onClick={() => setSelectedCategory(null)}
-                         style={selectedCategory === null ? { backgroundColor: storeSettings.theme_color, color: 'white', borderColor: storeSettings.theme_color } : {}}
-                         className={`px-5 py-2.5 md:py-2 md:px-6 rounded-full text-[11px] md:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-2 ${selectedCategory === null ? 'shadow-md opacity-100' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 shadow-sm'}`}>
-                         <Grid size={14} /> Categories
-                       </button>
-                    )}
-
-                    {categories.map(cat => (
-                      <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
-                        style={selectedCategory === cat.id ? { backgroundColor: storeSettings.theme_color, color: 'white', borderColor: storeSettings.theme_color } : {}}
-                        className={`px-5 py-2.5 md:py-2 md:px-6 rounded-full text-[11px] md:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 ${selectedCategory === cat.id ? 'shadow-md opacity-100' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 shadow-sm'}`}>
-                        {cat.name}
-                      </button>
-                    ))}
-                  </nav>
-                </div>
+                {/* 🚨 FIX 2: Hiding category nav completely for Premium Theme */}
+                {storeSettings.menu_style !== 'category_hero' && (
+                  <div className="sticky top-[81px] md:top-[97px] z-30 border-b border-slate-100/10 shadow-sm backdrop-blur-md transition-colors duration-300 bg-transparent">
+                    <nav className="flex gap-3 md:gap-4 overflow-x-auto p-3 md:px-8 md:py-4 max-w-7xl mx-auto no-scrollbar">
+                      {categories.map(cat => (
+                        <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
+                          style={selectedCategory === cat.id ? { backgroundColor: storeSettings.theme_color, color: 'white', borderColor: storeSettings.theme_color } : {}}
+                          className={`px-5 py-2.5 md:py-2 md:px-6 rounded-full text-[11px] md:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0 ${selectedCategory === cat.id ? 'shadow-md opacity-100' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 shadow-sm'}`}>
+                          {cat.name}
+                        </button>
+                      ))}
+                    </nav>
+                  </div>
+                )}
 
                 <div className="max-w-7xl mx-auto w-full p-4 md:p-6 lg:p-8 flex-1 pb-32">
                   
                   {storeSettings.menu_style === 'category_hero' && selectedCategory === null ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 animate-in fade-in slide-in-from-bottom-4">
-                      {categories.map(cat => (
-                         <div key={cat.id} onClick={() => setSelectedCategory(cat.id)} className="relative h-48 md:h-64 rounded-3xl overflow-hidden cursor-pointer shadow-md group border border-slate-100/20">
-                            <img src={cat.image_url || `https://source.unsplash.com/600x600/?food,${cat.name}`} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={cat.name} />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end p-4 md:p-6">
-                               <span className="text-white font-black text-lg md:text-2xl tracking-wide">{cat.name}</span>
-                            </div>
-                         </div>
-                      ))}
+                    <div className="animate-in fade-in slide-in-from-bottom-4">
+                      {/* 🚨 PREMIUM HEADER FOR CATEGORY PAGE */}
+                      <div className="text-center mb-8 md:mb-10 mt-2">
+                        <h2 className={`text-2xl md:text-4xl font-black italic mb-2 ${isDarkTheme ? 'text-white' : 'text-slate-800'} ${isRoyalFont ? 'uppercase tracking-[0.1em]' : ''}`}>Our Signature Collections</h2>
+                        <p className={`text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] ${isDarkTheme ? 'text-slate-400' : 'text-slate-500'}`}>Handpicked culinary masterpieces</p>
+                        <div style={{ backgroundColor: storeSettings.theme_color }} className="w-16 h-1 mx-auto mt-4 rounded-full"></div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                        {categories.map(cat => (
+                           <div key={cat.id} onClick={() => setSelectedCategory(cat.id)} className="relative h-48 md:h-64 rounded-3xl overflow-hidden cursor-pointer shadow-md group border border-slate-100/20">
+                              <img src={cat.image_url || `https://source.unsplash.com/600x600/?food,${cat.name}`} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={cat.name} />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end p-4 md:p-6">
+                                 <span className="text-white font-black text-lg md:text-2xl tracking-wide">{cat.name}</span>
+                              </div>
+                           </div>
+                        ))}
+                      </div>
                     </div>
                   ) : filteredDishes.length === 0 ? (
                     <div className="flex flex-col items-center justify-center text-center py-20 px-4">
@@ -516,6 +519,11 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                   ) : storeSettings.menu_style === 'category_hero' ? (
                     
                     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4">
+                      {/* 🚨 PREMIUM BACK BUTTON TO CATEGORY LIST */}
+                      <button onClick={() => setSelectedCategory(null)} className={`flex items-center gap-2 text-[10px] md:text-xs font-black uppercase tracking-widest mb-4 transition-all w-fit px-5 py-2.5 rounded-full border border-slate-200 shadow-sm ${isDarkTheme ? 'bg-slate-800 text-white border-slate-700' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+                         <ArrowLeft size={14} /> Back to Collections
+                      </button>
+
                       {filteredDishes.map(dish => {
                         const cartItemsForDish = cart.filter(i => i.id === dish.id);
                         const totalQtyInCart = cartItemsForDish.reduce((sum, item) => sum + item.qty, 0);
@@ -872,11 +880,16 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                   </button>
 
                   <div className="overflow-y-auto custom-scrollbar flex-1 pb-[140px] md:pb-[160px]">
-                    <div className="w-full h-56 md:h-64 bg-slate-100 relative">
-                      <img src={selectedDish.image_url || `https://source.unsplash.com/600x400/?food,${selectedDish.name}`} className="w-full h-full object-cover" />
-                    </div>
                     
-                    <div className="p-5 md:p-6">
+                    {/* 🚨 FIX 3: Completely Hide the image section if Premium Theme is selected */}
+                    {storeSettings.menu_style !== 'category_hero' && (
+                      <div className="w-full h-56 md:h-64 bg-slate-100 relative">
+                        <img src={selectedDish.image_url || `https://source.unsplash.com/600x400/?food,${selectedDish.name}`} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    
+                    {/* Adjusted padding for Premium Theme */}
+                    <div className={`p-5 md:p-6 ${storeSettings.menu_style === 'category_hero' ? 'pt-8 md:pt-10' : ''}`}>
                       <div className="flex items-center gap-2 mb-2">
                          <div className="w-4 h-4 border-2 border-green-600 flex items-center justify-center rounded-sm"><div className="w-2 h-2 bg-green-600 rounded-full"></div></div>
                          <h2 className={`font-black text-slate-900 ${isRoyalFont ? 'uppercase tracking-widest text-lg md:text-xl' : 'text-xl md:text-2xl'}`}>
@@ -895,6 +908,10 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                       )}
 
                       <p className="text-xs md:text-sm text-slate-500 mb-6">{selectedDish.description}</p>
+                      
+                      {storeSettings.menu_style === 'category_hero' && (
+                         <div className="w-full h-[1px] bg-slate-100 my-6"></div>
+                      )}
 
                       {selectedDish.variants && selectedDish.variants.length > 0 && (
                         <div className="mb-6 md:mb-8">
@@ -963,8 +980,10 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                               const hasVariants = rec.variants && rec.variants.length > 0;
                               return (
                                 <div key={rec.id} className="min-w-[160px] md:min-w-[180px] bg-white border-2 border-slate-100 rounded-2xl p-2 md:p-3 shadow-sm shrink-0 flex flex-col">
-                                  <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
-                                  <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-2">{rec.name}</p>
+                                  {storeSettings.menu_style !== 'category_hero' && (
+                                     <img src={rec.image_url} className="w-full h-16 md:h-20 object-cover rounded-xl mb-2 bg-slate-100" />
+                                  )}
+                                  <p className="font-bold text-slate-800 text-[10px] md:text-xs truncate mb-2 mt-1">{rec.name}</p>
                                   
                                   <div className="flex justify-between items-center mt-auto bg-slate-50 p-2 rounded-xl border border-slate-100">
                                     <div className="flex flex-col">

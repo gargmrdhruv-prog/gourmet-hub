@@ -13,11 +13,10 @@ const MenuManagement = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
   
-  // 🚨 UI STATE: Store the theme style of current restaurant
   const [menuStyle, setMenuStyle] = useState('classic');
   
   const [imageFile, setImageFile] = useState(null);
-  const [categoryImageFile, setCategoryImageFile] = useState(null); // 🚨 New state for Category Hero Image
+  const [categoryImageFile, setCategoryImageFile] = useState(null); 
   
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryText, setNewCategoryText] = useState("");
@@ -32,12 +31,11 @@ const MenuManagement = () => {
   const availableTags = ['Veg 🟢', 'Non-Veg 🔴', 'Bestseller ⭐', 'Spicy 🌶️', "Chef's Special 👨‍🍳", 'Sweet 🍯'];
 
   useEffect(() => {
-    fetchMenuStyle(); // 🚨 Fetch the theme style first
+    fetchMenuStyle(); 
     fetchDishes();
     fetchCategories();
   }, []);
 
-  // 🚨 NEW FUNCTION: Fetch the assigned menu theme from Super Admin
   async function fetchMenuStyle() {
     try {
       const admin = JSON.parse(localStorage.getItem('admin_user'));
@@ -90,7 +88,6 @@ const MenuManagement = () => {
   const uploadImage = async (file) => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random()}.${fileExt}`;
-    // Reusing the Dishes_pics bucket for both dish and category images to save storage architecture
     const { error: uploadError } = await supabase.storage.from('Dishes_pics').upload(fileName, file);
     if (uploadError) throw uploadError;
     const { data } = supabase.storage.from('Dishes_pics').getPublicUrl(fileName);
@@ -104,7 +101,7 @@ const MenuManagement = () => {
     });
     setEditingId(null);
     setImageFile(null);
-    setCategoryImageFile(null); // Reset category image
+    setCategoryImageFile(null); 
     setIsModalOpen(false);
     setIsAddingCategory(false);
     setNewCategoryText("");
@@ -192,7 +189,6 @@ const MenuManagement = () => {
     try {
       const admin = JSON.parse(localStorage.getItem('admin_user')); 
       
-      // 🚨 DYNAMIC IMAGE LOGIC: Only process dish image if it's the classic UI
       let imageUrl = editingId ? dishes.find(d => d.id === editingId).image_url : '';
       if (menuStyle === 'classic' && imageFile) {
         imageUrl = await uploadImage(imageFile);
@@ -201,7 +197,6 @@ const MenuManagement = () => {
       let finalCategoryId = newDish.category_id;
       
       if (isAddingCategory && newCategoryText.trim() !== '') {
-        // 🚨 CATEGORY HERO LOGIC
         let catImageUrl = null;
         if (menuStyle === 'category_hero') {
           if (!categoryImageFile) {
@@ -215,13 +210,17 @@ const MenuManagement = () => {
             .insert([{ 
                 name: newCategoryText.trim(), 
                 restaurant_id: admin.id,
-                image_url: catImageUrl // Save image URL to DB
+                image_url: catImageUrl 
             }])
             .select()
             .single();
             
         if (catError) throw catError;
         finalCategoryId = newCat.id; 
+      } else if (menuStyle === 'category_hero' && categoryImageFile && finalCategoryId) {
+        // 🚨 FIX 1: Update existing category image if uploaded
+        const catImageUrl = await uploadImage(categoryImageFile);
+        await supabase.from('subcategories').update({ image_url: catImageUrl }).eq('id', finalCategoryId);
       }
       
       if (!finalCategoryId || finalCategoryId === '') throw new Error("Please select a valid category or type a new one.");
@@ -293,7 +292,6 @@ const MenuManagement = () => {
         <div className="flex flex-wrap gap-2">
           {categories.map((cat) => (
             <div key={cat.id} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm hover:border-red-300 transition-all group">
-              {/* 🚨 ADDED: Show a mini thumbnail if it's the premium UI */}
               {menuStyle === 'category_hero' && cat.image_url && (
                  <img src={cat.image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
               )}
@@ -323,7 +321,6 @@ const MenuManagement = () => {
                 <tr key={dish.id} className={`hover:bg-slate-50/40 transition-all group ${!dish.is_available ? 'opacity-50' : ''}`}>
                   <td className="p-6 md:p-10 flex items-center gap-4 md:gap-6 max-w-[250px] md:max-w-none">
                     
-                    {/* 🚨 DYNAMIC UI: Only show dish photo if Classic UI is selected */}
                     {menuStyle === 'classic' && (
                       <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl md:rounded-[2rem] bg-slate-100 overflow-hidden border-2 md:border-4 border-white shadow-lg flex-shrink-0 relative">
                         <img src={dish.image_url || `https://source.unsplash.com/200x200/?food,dish`} className="w-full h-full object-cover" alt={dish.name} />
@@ -392,10 +389,8 @@ const MenuManagement = () => {
             
             <form onSubmit={handleSubmit} className="space-y-6">
               
-              {/* 🚨 DYNAMIC GRID: Full width if Hero UI (no dish image), else 3 columns */}
               <div className={`grid grid-cols-1 ${menuStyle === 'classic' ? 'md:grid-cols-3' : 'md:grid-cols-1'} gap-6`}>
                 
-                {/* 🚨 DISH IMAGE UPLOAD: Only visible in Classic UI */}
                 {menuStyle === 'classic' && (
                   <div className="col-span-1 space-y-3">
                     <div className="relative group">
@@ -417,11 +412,22 @@ const MenuManagement = () => {
                     <div>
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Category *</label>
                       {!isAddingCategory ? (
-                        <select className="w-full bg-slate-50 border-none rounded-xl p-4 mt-1 font-black italic text-slate-800 focus:ring-2 focus:ring-orange-500 outline-none appearance-none cursor-pointer text-sm" value={newDish.category_id} onChange={(e) => { if (e.target.value === 'ADD_NEW') { setIsAddingCategory(true); setNewDish({ ...newDish, category_id: '' }); } else { setNewDish({ ...newDish, category_id: e.target.value }); } }} required={!isAddingCategory}>
-                          <option value="">Choose category...</option>
-                          {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                          <option value="ADD_NEW" className="font-bold text-orange-500 bg-orange-50">+ Add Category</option>
-                        </select>
+                        <div className="flex flex-col gap-2 mt-1">
+                          <select className="w-full bg-slate-50 border-none rounded-xl p-4 font-black italic text-slate-800 focus:ring-2 focus:ring-orange-500 outline-none appearance-none cursor-pointer text-sm" value={newDish.category_id} onChange={(e) => { if (e.target.value === 'ADD_NEW') { setIsAddingCategory(true); setNewDish({ ...newDish, category_id: '' }); } else { setNewDish({ ...newDish, category_id: e.target.value }); } }} required={!isAddingCategory}>
+                            <option value="">Choose category...</option>
+                            {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                            <option value="ADD_NEW" className="font-bold text-orange-500 bg-orange-50">+ Add Category</option>
+                          </select>
+                          
+                          {/* 🚨 FIX 1: Allow Updating Hero Image for EXISTING Categories */}
+                          {menuStyle === 'category_hero' && newDish.category_id && (
+                             <label className={`w-full border-2 border-dashed rounded-xl p-3 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all flex justify-center items-center gap-2 ${categoryImageFile ? 'bg-green-50 border-green-300 text-green-600' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}>
+                               <ImageIcon size={16} />
+                               {categoryImageFile ? 'New Hero Image Ready' : 'Update Category Hero Pic (Optional)'}
+                               <input type="file" accept="image/*" className="hidden" onChange={(e) => setCategoryImageFile(e.target.files[0])} />
+                             </label>
+                          )}
+                        </div>
                       ) : (
                         <div className="flex flex-col gap-2 mt-1">
                           <div className="flex gap-2">
@@ -429,11 +435,10 @@ const MenuManagement = () => {
                             <button type="button" onClick={() => {setIsAddingCategory(false); setNewCategoryText(""); setCategoryImageFile(null);}} className="bg-slate-200 text-slate-600 px-4 rounded-xl font-black text-xs hover:bg-slate-300">Cancel</button>
                           </div>
                           
-                          {/* 🚨 CATEGORY HERO IMAGE UPLOAD: Only visible in Premium UI */}
                           {menuStyle === 'category_hero' && (
                              <label className={`w-full border-2 border-dashed rounded-xl p-3 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all flex justify-center items-center gap-2 ${categoryImageFile ? 'bg-green-50 border-green-300 text-green-600' : 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100'}`}>
                                <ImageIcon size={16} />
-                               {categoryImageFile ? 'Hero Image Selected' : 'Upload Category Hero Image *'}
+                               {categoryImageFile ? 'Hero Image Selected' : 'Upload Category Hero Pic *'}
                                <input type="file" accept="image/*" className="hidden" onChange={(e) => setCategoryImageFile(e.target.files[0])} />
                              </label>
                           )}
