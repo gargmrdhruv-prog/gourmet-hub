@@ -31,11 +31,12 @@ function App() {
 
   const [editingCartItem, setEditingCartItem] = useState(null);
   const [storeSettings, setStoreSettings] = useState(null);
+
+  const [vh, setVh] = useState(window.innerHeight);
   
   const location = useLocation();
   const currentPath = location.pathname;
 
-  // 🚨 FIX 2: Auto-redirect to menu if cart becomes empty on checkout page
   useEffect(() => {
     if (view === 'checkout' && cart.length === 0) {
       setView('menu');
@@ -531,6 +532,7 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                         const totalQtyInCart = cartItemsForDish.reduce((sum, item) => sum + item.qty, 0);
                         const isNonVeg = dish.tags?.some(t => t.toLowerCase().includes('non-veg'));
                         const extraTags = dish.tags?.filter(t => t !== 'Veg 🟢' && t !== 'Non-Veg 🔴' && t !== 'Bestseller ⭐') || [];
+                        const isBestseller = dish.tags?.some(t => t.toLowerCase().includes('bestseller')); // 🚨 FIX: Extract Bestseller logic
 
                         return (
                           <div key={dish.id} className="bg-white/95 backdrop-blur-md p-5 rounded-3xl shadow-sm border border-slate-100 hover:shadow-md transition-all">
@@ -550,14 +552,15 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                                 </div>
                                 {dish.description && <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">{dish.description}</p>}
                                 
-                                {extraTags.length > 0 && (
+                                {/* 🚨 FIX: Now the entire block renders if there are extraTags OR if it's a Bestseller */}
+                                {(extraTags.length > 0 || isBestseller) && (
                                   <div className="flex flex-wrap gap-1.5 mt-2">
                                     {extraTags.map((tag, idx) => (
                                       <span key={idx} style={{ color: storeSettings.theme_color, backgroundColor: `${storeSettings.theme_color}15`, borderColor: `${storeSettings.theme_color}30` }} className="text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-widest">
                                         {tag}
                                       </span>
                                     ))}
-                                    {dish.tags?.some(t => t.toLowerCase().includes('bestseller')) && (
+                                    {isBestseller && (
                                        <span style={{ backgroundColor: storeSettings.theme_color }} className="text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded shadow-sm">⭐ Bestseller</span>
                                     )}
                                   </div>
@@ -683,7 +686,6 @@ const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qt
                   )}  
                 </div>
 
-                {/* 🚨 FIX 3: Floating Cart Bottom Bar with Close Button */}
                 {cart.length > 0 && (
                   <div className="fixed bottom-4 left-4 right-4 md:bottom-8 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-xl bg-white/95 backdrop-blur-md rounded-2xl md:rounded-[2rem] p-3 md:p-4 border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.1)] md:shadow-2xl z-40 flex justify-between items-center animate-in slide-in-from-bottom-10">
                      
