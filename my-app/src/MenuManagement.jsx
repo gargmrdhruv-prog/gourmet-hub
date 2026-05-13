@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from './AdminLayout';
 import { supabase } from './supabase';
 import { 
-  Plus, Edit2, Trash2, X, Loader2, UploadCloud, Link, CheckCircle2, Star, Image as ImageIcon, Gift
+  Plus, Edit2, Trash2, X, Loader2, UploadCloud, Link, CheckCircle2, Star, Image as ImageIcon, Gift 
 } from 'lucide-react';
 
 const MenuManagement = () => {
@@ -111,8 +111,15 @@ const MenuManagement = () => {
   const startEdit = (dish) => {
     setEditingId(dish.id);
     const hasVars = dish.variants && dish.variants.length > 0;
-    const normalizedPairs = (dish.paired_items || []).map(p => typeof p === 'string' ? { id: p, isFree: false } : p);
     
+    // 🚨 FIX: Normalize paired items strictly to strings ('id' or 'id:free')
+    // Isse purana [object Object] wala data corrupt nahi karega
+    const normalizedPairs = (dish.paired_items || []).map(p => {
+      if (typeof p === 'string' && p !== '[object Object]') return p;
+      if (typeof p === 'object' && p !== null && p.id) return p.isFree ? `${p.id}:free` : p.id;
+      return null;
+    }).filter(Boolean);
+
     setNewDish({
       name: dish.name,
       price: dish.price,
@@ -130,24 +137,28 @@ const MenuManagement = () => {
     setIsModalOpen(true);
   };
 
+  // 🚨 SMART FIX: Split string to check ID only
   const togglePairing = (id) => {
     setNewDish(prev => {
-      const exists = prev.paired_items.find(p => (typeof p === 'string' ? p : p.id) === id);
+      const exists = prev.paired_items.find(p => p.split(':')[0] === id);
       if (exists) {
-        return { ...prev, paired_items: prev.paired_items.filter(p => (typeof p === 'string' ? p : p.id) !== id) };
+        return { ...prev, paired_items: prev.paired_items.filter(p => p.split(':')[0] !== id) };
       } else {
-        return { ...prev, paired_items: [...prev.paired_items, { id, isFree: false }] };
+        return { ...prev, paired_items: [...prev.paired_items, id] }; // Default saves just 'id'
       }
     });
   };
 
+  // 🚨 SMART FIX: Append ':free' flag inside the string
   const toggleFreeStatus = (e, id) => {
     e.stopPropagation();
     setNewDish(prev => ({
       ...prev,
       paired_items: prev.paired_items.map(p => {
-        const pId = typeof p === 'string' ? p : p.id;
-        if (pId === id) return { id, isFree: !(typeof p === 'string' ? false : p.isFree) };
+        const [pId, status] = p.split(':');
+        if (pId === id) {
+          return status === 'free' ? pId : `${pId}:free`;
+        }
         return p;
       })
     }));
@@ -254,13 +265,14 @@ const MenuManagement = () => {
       const safeRating = newDish.rating === '' ? null : Math.min(5, Math.max(1, parseFloat(newDish.rating)));
       const safeOrderCount = newDish.order_count === '' ? null : Math.max(0, parseInt(newDish.order_count));
 
+      // Data format sending strings securely
       const dishData = {
         name: newDish.name,
         price: finalPrice, 
         subcategory_id: finalCategoryId,
         description: newDish.description,
         image_url: imageUrl,
-        paired_items: newDish.paired_items,
+        paired_items: newDish.paired_items, // Fully strings now
         is_available: newDish.is_available,
         restaurant_id: admin.id,
         rating: safeRating,
@@ -592,9 +604,10 @@ const MenuManagement = () => {
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-56 overflow-y-auto pr-2 custom-scrollbar">
                   {dishes.filter(d => d.id !== editingId).map(dish => {
-                    const pairObj = newDish.paired_items.find(p => (typeof p === 'string' ? p : p.id) === dish.id);
-                    const isSelected = !!pairObj;
-                    const isFree = isSelected && (typeof pairObj !== 'string') && pairObj.isFree;
+                    // 🚨 STRING FIX: Find pairing via string split logic
+                    const pairItem = newDish.paired_items.find(p => p.split(':')[0] === dish.id);
+                    const isSelected = !!pairItem;
+                    const isFree = isSelected && pairItem.includes(':free');
 
                     return (
                       <div key={dish.id} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${isSelected ? 'border-orange-500 bg-white shadow-sm' : 'border-slate-200 bg-white hover:border-orange-200'}`}>

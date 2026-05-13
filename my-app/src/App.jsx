@@ -271,11 +271,28 @@ function App() {
     setSheetRecs({}); 
   }
 
+  // 🚨 SMART FIX: Now accurately reads the new string-based parsing
   const getSmartRecs = (currentDish) => {
     if (!currentDish.paired_items || currentDish.paired_items.length === 0) return [];
     return currentDish.paired_items.map(p => {
-       const pId = typeof p === 'string' ? p : p.id;
-       const isFree = typeof p === 'string' ? false : p.isFree;
+       // Failsafe condition for old/corrupted data [object Object]
+       if (!p || p === '[object Object]') return null;
+       
+       let pId, isFree;
+       
+       // Handle the new safe string format
+       if (typeof p === 'string') {
+          pId = p.split(':')[0];
+          isFree = p.includes(':free');
+       } 
+       // Fallback for direct objects if passed
+       else if (typeof p === 'object') {
+          pId = p.id;
+          isFree = p.isFree;
+       } else {
+          return null;
+       }
+       
        const dishInfo = allDishes.find(d => d.id === pId);
        if (!dishInfo) return null;
        return { ...dishInfo, isFreeItem: isFree };
