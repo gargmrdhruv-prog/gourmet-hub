@@ -201,9 +201,9 @@ function App() {
     }
   }, [selectedCategory, allDishes]);
 
-  // 🚨 SMART CART ARCHITECTURE: Parent-Child Linkage & Strict Boundries
   const addToCart = (dish, variantsArray = [], request = "", closeSheet = true, qtyToAdd = 1, isFree = false, parentId = null) => {
     if (qtyToAdd <= 0) return;
+    
     if (qtyToAdd > 20) {
       alert("⚠️ Security Alert: You cannot add more than 20 quantities of a single item at once.");
       return;
@@ -215,7 +215,6 @@ function App() {
     const variantNames = variantsArray.map(v => v.name).sort().join(' + ');
     let cartItemId = variantNames ? `${dish.id}-${variantNames}` : `${dish.id}-regular`;
 
-    // Isolate Free items from Paid items
     if (isFree && parentId) {
         cartItemId = `${dish.id}-free-${parentId}`;
     }
@@ -223,7 +222,6 @@ function App() {
     setCart(prevCart => {
       let workingCart = prevCart;
       
-      // If we are updating an existing customized item, clear the old bundle (Parent + Children)
       if (editingCartItem && !isFree) {
          workingCart = prevCart.filter(i => i.cartItemId !== editingCartItem.cartItemId && i.parentCartItemId !== editingCartItem.cartItemId);
       }
@@ -237,11 +235,20 @@ function App() {
           return workingCart; 
         }
 
-        // 🚨 FLAW 2 & 4 FIX: Free item checkout quantity cap
         if (isFree && parentId) {
             const parentItem = workingCart.find(i => i.cartItemId === parentId);
-            if (parentItem && newQty > parentItem.qty) {
-                alert(`⚠️ You can only add up to ${parentItem.qty} complimentary ${dish.name}.`);
+            
+            // Checking how many total free items are currently attached to this parent
+            const totalFreeForParent = workingCart.reduce((sum, i) => {
+                if (i.parentCartItemId === parentId && i.isFreeItem) return sum + i.qty;
+                return sum;
+            }, 0);
+
+            // Removing existing qty of THIS item from total so we can add newQty
+            const totalFreeExcludingThis = totalFreeForParent - existing.qty;
+
+            if (parentItem && (totalFreeExcludingThis + newQty) > parentItem.qty) {
+                alert(`⚠️ You can only select up to ${parentItem.qty} complimentary item(s) in total.`);
                 return workingCart;
             }
         }
@@ -256,9 +263,10 @@ function App() {
           return workingCart;
         }
 
+        const finalName = dish.isFreeItem ? `${dish.name} (Complimentary)` : dish.name;
         return [...workingCart, { 
             ...dish, 
-            name: dish.name, 
+            name: finalName, 
             cartItemId, 
             price: actualPrice, 
             selectedVariants: variantsArray, 
@@ -280,28 +288,29 @@ function App() {
     }
   }
 
-  // 🚨 FLAW 3 FIX: Auto-Remove child if parent drops or decreases
   const removeFromCart = (cartItemId) => {
     setCart(prevCart => {
       const existing = prevCart.find(i => i.cartItemId === cartItemId);
       if (!existing) return prevCart;
 
       if (existing.qty === 1) {
-          // Remove parent AND all its free complimentary children
           return prevCart.filter(i => i.cartItemId !== cartItemId && i.parentCartItemId !== cartItemId);
       } else {
           const newQty = existing.qty - 1;
           return prevCart.map(i => {
               if (i.cartItemId === cartItemId) return { ...i, qty: newQty };
-              // 🚨 FLAW 4 FIX: Sync decrease if Free child exceeds new parent limit
-              if (i.parentCartItemId === cartItemId && i.qty > newQty) return { ...i, qty: newQty };
+              
+              if (i.parentCartItemId === cartItemId && i.qty > newQty) {
+                 // Simple approach: if parent reduces, we reduce child to match parent
+                 // (This handles single free child correctly)
+                 return { ...i, qty: newQty };
+              }
               return i;
           });
       }
     });
   }
 
-  // Populates existing children back to sheetRecs when Editing
   const openEditCartItem = (item) => {
     setEditingCartItem(item);
     setSelectedDish(item); 
@@ -800,7 +809,6 @@ function App() {
                              <div>
                                <span className={`font-bold text-slate-800 block ${isRoyalFont ? 'uppercase tracking-wider text-xs' : ''}`}>
                                  {item.name} 
-                                 {item.isFreeItem && <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded ml-2 uppercase tracking-widest align-middle">Free</span>}
                                </span>
                                {item.selectedVariants && item.selectedVariants.length > 0 && (
                                  <div className="flex flex-wrap gap-1 mt-1.5">
@@ -929,7 +937,7 @@ function App() {
                           <div className="bg-slate-200 text-slate-800 text-xs font-black px-2.5 py-1 rounded shrink-0">{item.qty}x</div>
                           <div>
                             <span className="font-bold text-slate-800 block leading-tight">
-                              {item.name} {item.isFreeItem && <span className="text-[8px] bg-green-100 text-green-700 px-1 py-0.5 rounded ml-1 uppercase tracking-widest">Free</span>}
+                              {item.name}
                             </span>
                             {item.selectedVariants && item.selectedVariants.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1.5">
@@ -1086,9 +1094,16 @@ function App() {
                               const isFree = rec.isFreeItem;
 
                               const handleRecAdd = () => {
-                                if (isFree && recQty >= mainDishQty) {
-                                  alert(`You can only add up to ${mainDishQty} complimentary ${rec.name} with your current selection.`);
-                                  return;
+                                if (isFree) {
+                                  // Global check across all free items currently in sheet
+                                  const totalFreeSelected = Object.values(sheetRecs).reduce((sum, item) => {
+                                    return item.dish.isFreeItem ? sum + item.qty : sum;
+                                  }, 0);
+
+                                  if (totalFreeSelected >= mainDishQty) {
+                                    alert(`You can only select a total of ${mainDishQty} complimentary item(s).`);
+                                    return;
+                                  }
                                 }
                                 setSheetRecs(prev => ({ ...prev, [rec.id]: { dish: rec, qty: recQty + 1 } }));
                               };
@@ -1157,11 +1172,20 @@ function App() {
                             setMainDishQty(newQty);
                             setSheetRecs(prev => {
                               const newRecs = { ...prev };
-                              Object.keys(newRecs).forEach(key => {
-                                if (newRecs[key].dish.isFreeItem && newRecs[key].qty > newQty) {
-                                  newRecs[key].qty = newQty;
+                              // Automatically reduce total free items if they exceed the new main dish quantity
+                              let currentTotalFree = Object.values(newRecs).reduce((sum, item) => item.dish.isFreeItem ? sum + item.qty : sum, 0);
+                              
+                              for (let key in newRecs) {
+                                if (newRecs[key].dish.isFreeItem) {
+                                  while (newRecs[key].qty > 0 && currentTotalFree > newQty) {
+                                    newRecs[key].qty -= 1;
+                                    currentTotalFree -= 1;
+                                  }
+                                  if (newRecs[key].qty === 0) {
+                                    delete newRecs[key];
+                                  }
                                 }
-                              });
+                              }
                               return newRecs;
                             });
                           }} 
